@@ -33,6 +33,27 @@ def setup_schema():
                 )
             """)
             
+            # Create settings table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
+            """)
+            
+            # Default weekly goal
+            cursor.execute("INSERT INTO settings (key, value) VALUES ('weekly_goal', '700') ON CONFLICT DO NOTHING")
+            
+            # Create feedback table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS feedback (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            
             # Create chest_logs table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS chest_logs (

@@ -36,10 +36,31 @@ class ADBController:
         cmd = ["adb"]
         if self.device_id:
             cmd.extend(["-s", self.device_id])
-        cmd.extend(["exec-out", "screencap", "-p"])
-        
+            
+        # Try raw uncompressed framebuffer first (bypasses slow on-device PNG encoding)
+        raw_cmd = cmd + ["exec-out", "screencap"]
+        try:
+            proc = subprocess.run(raw_cmd, capture_output=True, timeout=5)
+            raw_data = proc.stdout
+            if len(raw_data) > 12:
+                import struct
+                import numpy as np
+                import cv2
+                w, h, f = struct.unpack('<III', raw_data[:12])
+                image_bytes = raw_data[12:]
+                # Check if size matches w*h*4 (RGBA)
+                if len(image_bytes) == w * h * 4:
+                    img_np = np.frombuffer(image_bytes, dtype=np.uint8).reshape((h, w, 4))
+                    img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGBA2BGR)
+                    cv2.imwrite(output_path, img_bgr)
+                    return output_path
+        except Exception as e:
+            print(f"Raw screencap optimization failed, falling back to PNG: {e}")
+            
+        # Fallback to PNG mode if raw parsing fails or geometry is unexpected
+        png_cmd = cmd + ["exec-out", "screencap", "-p"]
         with open(output_path, "wb") as f:
-            subprocess.run(cmd, stdout=f)
+            subprocess.run(png_cmd, stdout=f)
             
         return output_path
 

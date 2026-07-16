@@ -213,10 +213,30 @@ class ChestExtractor:
                 chest_crop = img[card_top_y:button_bottom_y, x_left:x_right]
                 level = self.vision.get_chest_level_from_color(chest_crop)
                 
+                # If color guessing completely fails, default to 15 and treat as event
+                # Also, if it incorrectly guesses level 5 for a blue (event) chest, default to 15.
+                if level == 0 or (level == 5 and chest_type == "event"):
+                    level = 15
+                    chest_type = "event"
+                    
+            # Runic squad mapping
+            if "runic" in source_lower or "runic" in title_lower:
+                if level >= 40: level = 25
+                elif level >= 35: level = 20
+                elif level >= 30: level = 15
+                elif level >= 25: level = 10
+                elif level >= 20: level = 5
+                chest_type = "common"
             # Expired fallback
             if is_expired and level == 0:
                 level = 20
                 chest_type = "common"
+                
+            # Stopping Condition: If we see the empty screen text, or no valid chest data
+            full_text = " ".join(chest_texts).lower()
+            if "no gifts" in full_text or "empty" in full_text or (not title and not player):
+                print("Empty list detected. Extraction complete for this tab.")
+                break
                 
             # Clean up defaults
             if not title: title = "Unknown Chest"

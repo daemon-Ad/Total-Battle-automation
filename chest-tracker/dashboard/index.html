@@ -3,46 +3,260 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Total Battle Clan Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <title>Total Battle Clan Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;800&display=swap" rel="stylesheet">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="/assets/style.css">
+    
+    <!-- Google Translate Script -->
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({pageLanguage: 'en'}, 'google_translate_element');
+        }
+    </script>
+    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 </head>
 <body>
-    <div class="background-orbs">
-        <div class="orb orb-1"></div>
-        <div class="orb orb-2"></div>
-        <div class="orb orb-3"></div>
-    </div>
 
-    <div class="container">
-        <header>
-            <h1>Clan Weekly Contributions</h1>
-            <p>Automated Chest Extraction & Points Tally</p>
-        </header>
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar collapsed" id="sidebar">
+        <div class="sidebar-header">
+            <i class='bx bx-menu' id="sidebar-toggle"></i>
+            <span class="logo-text">Dashboard</span>
+        </div>
+        <ul class="nav-links">
+            <li class="active" data-view="home-view">
+                <i class='bx bx-home-alt'></i>
+                <span class="link-name">Home</span>
+            </li>
+            <li data-view="leaderboard-view">
+                <i class='bx bx-bar-chart-alt-2'></i>
+                <span class="link-name">Leaderboard</span>
+            </li>
+            <li data-view="management-view">
+                <i class='bx bx-user-circle'></i>
+                <span class="link-name">Player management</span>
+            </li>
+            <li data-view="settings-view">
+                <i class='bx bx-cog'></i>
+                <span class="link-name">Chest settings</span>
+            </li>
+            <li data-view="feedback-view">
+                <i class='bx bx-message-square-dots'></i>
+                <span class="link-name">Feedback</span>
+            </li>
+        </ul>
+    </nav>
 
-        <main>
-            <div class="glass-card table-wrapper">
-                <table id="leaderboard-table">
-                    <thead>
-                        <tr>
-                            <th>Rank</th>
-                            <th>Player</th>
-                            <th>Common</th>
-                            <th>Rare</th>
-                            <th>Epic</th>
-                            <th>Events</th>
-                            <th class="score-col">Total Score</th>
-                        </tr>
-                    </thead>
-                    <tbody id="leaderboard-body">
-                        <!-- Data injected via JS -->
-                    </tbody>
-                </table>
-                <div id="loading" class="loading-state">
-                    Loading Data...
-                </div>
+    <!-- Main Content Area -->
+    <div class="main-content" id="main-content">
+        
+        <!-- Horizontal Navbar -->
+        <div class="top-navbar">
+            <div class="navbar-left">
+                <a href="#" class="nav-brand" id="nav-brand-link">
+                    <i class='bx bx-shield-quarter'></i> Clan Management
+                </a>
             </div>
-        </main>
+            <div class="navbar-right">
+                <div id="google_translate_element"></div>
+            </div>
+        </div>
+
+        <div class="container">
+            
+            <!-- VIEW 0: Home -->
+            <section id="home-view" class="view active">
+                <header>
+                    <h1>Clan Management</h1>
+                    <p>Welcome to the central automation dashboard.</p>
+                </header>
+
+                <div class="home-cards">
+                    <a href="#" class="home-card glass-card nav-card" data-target="leaderboard-view" style="text-decoration: none; color: inherit;">
+                        <i class='bx bx-bar-chart-alt-2'></i>
+                        <h3>Leaderboard</h3>
+                        <p>View weekly chest contributions and scores</p>
+                    </a>
+                    <a href="#" class="home-card glass-card nav-card" data-target="management-view" style="text-decoration: none; color: inherit;">
+                        <i class='bx bx-user-circle'></i>
+                        <h3>Player Management</h3>
+                        <p>Add, edit, or remove clan members</p>
+                    </a>
+                    <a href="#" class="home-card glass-card nav-card" data-target="settings-view" style="text-decoration: none; color: inherit;">
+                        <i class='bx bx-cog'></i>
+                        <h3>Chest Settings</h3>
+                        <p>Configure weekly goals and system parameters</p>
+                    </a>
+                    <a href="#" class="home-card glass-card nav-card" data-target="feedback-view" style="text-decoration: none; color: inherit;">
+                        <i class='bx bx-message-square-dots'></i>
+                        <h3>Feedback</h3>
+                        <p>Submit suggestions or feature requests</p>
+                    </a>
+                </div>
+            </section>
+
+            <!-- VIEW 1: Leaderboard -->
+            <section id="leaderboard-view" class="view">
+                <header>
+                    <h1>Clan Weekly Contributions</h1>
+                    <p>Automated Chest Extraction & Points Tally</p>
+                </header>
+
+                <div class="toolbar glass-card">
+                    <div class="search-box">
+                        <i class='bx bx-search'></i>
+                        <input type="text" id="search-input" placeholder="Search players...">
+                    </div>
+                    <div class="filter-box">
+                        <select id="sort-select">
+                            <option value="total_score">Sort by Score</option>
+                            <option value="username">Sort by Name</option>
+                            <option value="epic_chests">Sort by Epic Chests</option>
+                            <option value="rare_chests">Sort by Rare Chests</option>
+                            <option value="common_chests">Sort by Common Chests</option>
+                        </select>
+                        <button id="sort-order-btn" class="btn-icon"><i class='bx bx-sort-down'></i></button>
+                    </div>
+                </div>
+
+                <div class="glass-card table-wrapper">
+                    <table id="leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Player</th>
+                                <th>Common</th>
+                                <th>Rare</th>
+                                <th>Epic</th>
+                                <th>Events</th>
+                                <th class="score-col">Total Score</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-body">
+                            <!-- Data injected via JS -->
+                        </tbody>
+                    </table>
+                    <div id="leaderboard-loading" class="loading-state">Loading Data...</div>
+                </div>
+            </section>
+
+            <!-- VIEW 2: Player Details -->
+            <section id="player-details-view" class="view">
+                <header>
+                    <button id="back-to-leaderboard" class="btn-secondary"><i class='bx bx-arrow-back'></i> Back</button>
+                    <h1 id="details-player-name">Player Details</h1>
+                    <p>Detailed chest extraction logs</p>
+                </header>
+
+                <div class="glass-card table-wrapper">
+                    <table id="details-table">
+                        <thead>
+                            <tr>
+                                <th>Time Acquired</th>
+                                <th>Chest Title</th>
+                                <th>Type</th>
+                                <th>Level</th>
+                                <th>Source</th>
+                                <th>Points</th>
+                            </tr>
+                        </thead>
+                        <tbody id="details-body">
+                            <!-- Data injected via JS -->
+                        </tbody>
+                    </table>
+                    <div id="details-loading" class="loading-state">Loading Player Data...</div>
+                </div>
+            </section>
+
+            <!-- VIEW 3: Player Management -->
+            <section id="management-view" class="view">
+                <header>
+                    <h1>Player Management</h1>
+                    <p>Add, edit, or remove clan members</p>
+                </header>
+
+                <div class="toolbar glass-card">
+                    <div class="search-box">
+                        <input type="text" id="new-player-input" placeholder="New player name...">
+                        <button id="add-player-btn" class="btn-primary">Add Player</button>
+                    </div>
+                </div>
+
+                <div class="glass-card table-wrapper">
+                    <table id="management-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Player Name</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="management-body">
+                            <!-- Data injected via JS -->
+                        </tbody>
+                    </table>
+                    <div id="management-loading" class="loading-state">Loading Players...</div>
+                </div>
+            </section>
+
+            <!-- VIEW 4: Chest Settings -->
+            <section id="settings-view" class="view">
+                <header>
+                    <h1>Chest Settings</h1>
+                    <p>Configure dashboard parameters and rules</p>
+                </header>
+                
+                <div class="glass-card form-container">
+                    <div class="form-group">
+                        <label for="weekly-goal-input">Weekly Points Goal</label>
+                        <p class="help-text">Players scoring below this goal will be marked with a warning tint.</p>
+                        <input type="number" id="weekly-goal-input" min="0" max="90000" class="styled-input">
+                    </div>
+                    <button id="save-settings-btn" class="btn-primary">Save Settings</button>
+                    <span id="settings-status" style="margin-left: 15px;"></span>
+                </div>
+            </section>
+
+            <!-- VIEW 5: Feedback -->
+            <section id="feedback-view" class="view">
+                <header>
+                    <h1>Feedback & Suggestions</h1>
+                    <p>Submit your ideas to improve the system</p>
+                </header>
+                
+                <div class="glass-card form-container">
+                    <div class="form-group">
+                        <label for="fb-username">In-Game Name</label>
+                        <input type="text" id="fb-username" class="styled-input" placeholder="Your game name">
+                    </div>
+                    <div class="form-group">
+                        <label for="fb-content">Your Feedback</label>
+                        <textarea id="fb-content" class="styled-input" rows="4" placeholder="What features do you need? What should be improved?"></textarea>
+                    </div>
+                    <button id="submit-feedback-btn" class="btn-primary">Submit Feedback</button>
+                    <span id="feedback-status" style="margin-left: 15px;"></span>
+                </div>
+                
+                <!-- Feedback Admin View (Shown below form for convenience) -->
+                <h3 style="margin-top: 3rem; margin-bottom: 1rem;">Submitted Feedback (Admin View)</h3>
+                <div class="glass-card table-wrapper">
+                    <table id="feedback-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Player</th>
+                                <th>Feedback</th>
+                            </tr>
+                        </thead>
+                        <tbody id="feedback-body">
+                            <!-- Injected -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
     </div>
 
     <script src="/assets/app.js"></script>
