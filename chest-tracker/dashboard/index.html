@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Total Battle Clan Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+    <div class="background-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>Clan Weekly Contributions</h1>
+            <p>Automated Chest Extraction & Points Tally</p>
+        </header>
+
+        <main>
+            <div class="glass-card table-wrapper">
+                <table id="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Player</th>
+                            <th>Common</th>
+                            <th>Rare</th>
+                            <th>Epic</th>
+                            <th>Events</th>
+                            <th class="score-col">Total Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body">
+                        <!-- Data injected via JS -->
+                    </tbody>
+                </table>
+                <div id="loading" class="loading-state">
+                    Loading Data...
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/assets/app.js"></script>
+</body>
+</html>
