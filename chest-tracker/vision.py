@@ -26,8 +26,8 @@ class VisionEngine:
         """Pre-load commonly used templates."""
         template_paths = {
             "clan_logo": os.path.join(self.images_dir, "clan-logo.png"),
-            "gift_chests": os.path.join(self.images_dir, "clan-Gift-chests.png")
-            # We can add more as needed
+            "gift_chests": os.path.join(self.images_dir, "clan-Gift-chests.png"),
+            "back_button": os.path.join(self.images_dir, "back-button.png")
         }
         
         for name, path in template_paths.items():
