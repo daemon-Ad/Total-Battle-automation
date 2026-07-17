@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Settings Logic ---
     async function fetchSettings() {
         try {
-            const response = await fetch('/api/settings.json');
+            const response = await fetch('./api/settings.json');
             const result = await response.json();
             if (result.status === 'success' && result.data.weekly_goal) {
                 weeklyGoal = parseInt(result.data.weekly_goal);
@@ -196,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tbody.innerHTML = '';
         
         try {
-            const response = await fetch('/api/leaderboard.json');
+            const response = await fetch('./api/leaderboard.json');
             const result = await response.json();
             
             if (result.status === 'success') {
@@ -302,7 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
         nameHeader.textContent = "Loading...";
 
         try {
-            const response = await fetch(`/api/chests/chests_${playerId}.json`);
+            const response = await fetch(`./api/chests/chests_${playerId}.json`);
             const result = await response.json();
             
             if (result.status === 'success') {
@@ -356,7 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingEl.classList.remove('hidden');
 
         try {
-            const response = await fetch(`/api/players.json`);
+            const response = await fetch(`./api/players.json`);
             const result = await response.json();
             
             if (result.status === 'success') {
@@ -474,7 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Analytics Logic ---
     async function loadAnalytics() {
         try {
-            const response = await fetch('/api/analytics.json');
+            const response = await fetch('./api/analytics.json');
             const result = await response.json();
             if (result.status === 'success') {
                 analyticsData = result.data;
