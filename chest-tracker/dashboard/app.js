@@ -328,20 +328,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    let allManagementPlayers = [];
+
     // --- Player Management View Logic ---
     async function fetchPlayers() {
         const loadingEl = document.getElementById('management-loading');
-        const tbody = document.getElementById('management-body');
         
         loadingEl.classList.remove('hidden');
-        tbody.innerHTML = '';
 
         try {
             const response = await fetch(`/api/players`);
             const result = await response.json();
             
             if (result.status === 'success') {
-                renderManagement(result.data, tbody);
+                allManagementPlayers = result.data;
+                renderManagement();
             }
         } catch (error) {
             tbody.innerHTML = `<tr><td colspan="3">Network Error</td></tr>`;
@@ -350,14 +351,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderManagement(players, tbody) {
-        players.forEach(p => {
+    document.getElementById('management-rank-filter').addEventListener('change', () => {
+        renderManagement();
+    });
+
+    function renderManagement() {
+        const tbody = document.getElementById('management-body');
+        tbody.innerHTML = '';
+        
+        const filterRank = document.getElementById('management-rank-filter').value;
+        const filteredPlayers = filterRank === 'All' ? allManagementPlayers : allManagementPlayers.filter(p => p.rank === filterRank);
+
+        filteredPlayers.forEach(p => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>#${p.id}</td>
                 <td>${p.username}</td>
+                <td><span class="rank-badge-text">${p.rank || 'Officer'}</span></td>
                 <td>
-                    <button class="btn-edit" data-id="${p.id}" data-name="${p.username}"><i class='bx bx-edit'></i> Edit</button>
+                    <button class="btn-edit" data-id="${p.id}" data-name="${p.username}" data-rank="${p.rank}"><i class='bx bx-edit'></i> Edit</button>
                     <button class="btn-danger" data-id="${p.id}"><i class='bx bx-trash'></i> Delete</button>
                 </td>
             `;
@@ -365,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         tbody.querySelectorAll('.btn-edit').forEach(btn => {
-            btn.addEventListener('click', () => editPlayer(btn.dataset.id, btn.dataset.name));
+            btn.addEventListener('click', () => editPlayer(btn.dataset.id, btn.dataset.name, btn.dataset.rank));
         });
         tbody.querySelectorAll('.btn-danger').forEach(btn => {
             btn.addEventListener('click', () => deletePlayer(btn.dataset.id));
@@ -374,30 +386,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('add-player-btn').addEventListener('click', async () => {
         const input = document.getElementById('new-player-input');
+        const rankInput = document.getElementById('new-player-rank');
         const name = input.value.trim();
+        const rank = rankInput.value;
         if (!name) return;
         
         await fetch('/api/players', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: name })
+            body: JSON.stringify({ username: name, rank: rank })
         });
         
         input.value = '';
         fetchPlayers();
     });
 
-    async function editPlayer(id, oldName) {
-        const newName = prompt(`Enter new name for ${oldName}:`, oldName);
-        if (!newName || newName.trim() === '' || newName === oldName) return;
+    let currentEditingPlayerId = null;
+
+    function editPlayer(id, oldName, oldRank) {
+        currentEditingPlayerId = id;
+        document.getElementById('edit-player-name').value = oldName;
+        document.getElementById('edit-player-rank').value = oldRank || 'Officer';
+        document.getElementById('edit-player-modal').classList.remove('hidden');
+    }
+
+    document.getElementById('cancel-edit-btn').addEventListener('click', () => {
+        document.getElementById('edit-player-modal').classList.add('hidden');
+        currentEditingPlayerId = null;
+    });
+
+    document.getElementById('save-edit-btn').addEventListener('click', async () => {
+        if (!currentEditingPlayerId) return;
         
-        await fetch(`/api/players/${id}`, {
+        const newName = document.getElementById('edit-player-name').value.trim();
+        const newRank = document.getElementById('edit-player-rank').value;
+        
+        if (!newName) return;
+        
+        await fetch(`/api/players/${currentEditingPlayerId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: newName.trim() })
+            body: JSON.stringify({ username: newName, rank: newRank })
         });
+        
+        document.getElementById('edit-player-modal').classList.add('hidden');
+        currentEditingPlayerId = null;
         fetchPlayers();
-    }
+    });
 
     async function deletePlayer(id) {
         if (!confirm("Are you sure? This will delete ALL chests logged by this player!")) return;

@@ -56,9 +56,11 @@ async def basic_auth_middleware(request: Request, call_next):
 # Pydantic models for request bodies
 class PlayerCreate(BaseModel):
     username: str
+    rank: str = "Officer"
 
 class PlayerUpdate(BaseModel):
     username: str
+    rank: str = "Officer"
 
 class SettingsUpdate(BaseModel):
     weekly_goal: int
@@ -144,7 +146,20 @@ def get_players():
     conn = get_db()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute("SELECT id, username FROM players ORDER BY username ASC")
+            cursor.execute("""
+                SELECT id, username, rank FROM players 
+                ORDER BY 
+                    CASE rank
+                        WHEN 'Leader' THEN 1
+                        WHEN 'Superior' THEN 2
+                        WHEN 'Officer' THEN 3
+                        WHEN 'Veteran' THEN 4
+                        WHEN 'Soldier' THEN 5
+                        WHEN 'Unknown' THEN 6
+                        ELSE 7
+                    END ASC,
+                    username ASC
+            """)
             players = cursor.fetchall()
             return {"status": "success", "data": players}
     except Exception as e:
@@ -159,7 +174,7 @@ def create_player(player: PlayerCreate):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("INSERT INTO players (username) VALUES (%s) RETURNING id", (player.username,))
+            cursor.execute("INSERT INTO players (username, rank) VALUES (%s, %s) RETURNING id", (player.username, player.rank))
             new_id = cursor.fetchone()[0]
         conn.commit()
         return {"status": "success", "message": "Player created", "id": new_id}
@@ -176,7 +191,7 @@ def update_player(player_id: int, player: PlayerUpdate):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("UPDATE players SET username = %s WHERE id = %s", (player.username, player_id))
+            cursor.execute("UPDATE players SET username = %s, rank = %s WHERE id = %s", (player.username, player.rank, player_id))
             if cursor.rowcount == 0:
                 raise HTTPException(status_code=404, detail="Player not found")
         conn.commit()

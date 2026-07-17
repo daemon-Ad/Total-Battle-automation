@@ -37,10 +37,16 @@ def setup_schema():
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS players (
                     id SERIAL PRIMARY KEY,
-                    username TEXT UNIQUE NOT NULL
+                    username TEXT UNIQUE NOT NULL,
+                    rank TEXT DEFAULT 'Officer'
                 )
             """)
             
+            # Migrate existing tables
+            cursor.execute("""
+                ALTER TABLE players ADD COLUMN IF NOT EXISTS rank TEXT DEFAULT 'Officer';
+            """)
+
             # Create users table for dashboard authentication
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS users (

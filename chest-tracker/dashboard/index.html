@@ -277,7 +277,27 @@
                 <div class="toolbar glass-card">
                     <div class="search-box">
                         <input type="text" id="new-player-input" placeholder="New player name...">
+                        <select id="new-player-rank" style="margin-left: 1rem; margin-right: 1rem;">
+                            <option value="Leader">Leader</option>
+                            <option value="Superior">Superior</option>
+                            <option value="Officer" selected>Officer</option>
+                            <option value="Veteran">Veteran</option>
+                            <option value="Soldier">Soldier</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
                         <button id="add-player-btn" class="btn-primary">Add Player</button>
+                    </div>
+                    <div class="filter-box">
+                        <i class='bx bx-filter-alt' style="color: var(--text-secondary);"></i>
+                        <select id="management-rank-filter">
+                            <option value="All">All Ranks</option>
+                            <option value="Leader">Leader</option>
+                            <option value="Superior">Superior</option>
+                            <option value="Officer">Officer</option>
+                            <option value="Veteran">Veteran</option>
+                            <option value="Soldier">Soldier</option>
+                            <option value="Unknown">Unknown</option>
+                        </select>
                     </div>
                 </div>
 
@@ -287,6 +307,7 @@
                             <tr>
                                 <th>ID</th>
                                 <th>Player Name</th>
+                                <th>Rank</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -356,6 +377,32 @@
                 </div>
             </section>
 
+        </div>
+    </div>
+
+    <!-- Edit Player Modal -->
+    <div id="edit-player-modal" class="modal-overlay hidden">
+        <div class="modal-content glass-card">
+            <h2>Edit Player</h2>
+            <div class="form-group" style="margin-top: 1rem;">
+                <label>Name</label>
+                <input type="text" id="edit-player-name" class="styled-input">
+            </div>
+            <div class="form-group" style="margin-top: 1rem;">
+                <label>Rank</label>
+                <select id="edit-player-rank" class="styled-input">
+                    <option value="Leader">Leader</option>
+                    <option value="Superior">Superior</option>
+                    <option value="Officer">Officer</option>
+                    <option value="Veteran">Veteran</option>
+                    <option value="Soldier">Soldier</option>
+                    <option value="Unknown">Unknown</option>
+                </select>
+            </div>
+            <div class="modal-actions" style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
+                <button id="cancel-edit-btn" class="btn-secondary">Cancel</button>
+                <button id="save-edit-btn" class="btn-primary">Update</button>
+            </div>
         </div>
     </div>
 
