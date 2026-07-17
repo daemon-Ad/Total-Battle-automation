@@ -19,7 +19,7 @@ An automated, high-performance system designed to track clan chest contributions
 
 This project was built to solve the fragility and latency inherent in traditional mobile game automation. Below are the core technical achievements and pipeline optimizations.
 
-### 1. Asynchronous Extraction Pipeline (The "Holy Grail")
+### 1. Asynchronous Extraction Pipeline
 The most significant performance bottleneck in mobile automation is the delay between commanding the device, capturing the screen, and processing the image.
 - **In-Memory ADB Framebuffer:** The system bypasses slow Android disk encoding entirely. By piping the raw, uncompressed framebuffer bytes directly from `adb exec-out screencap` into Python's RAM, the script achieves near-instantaneous screen captures as NumPy arrays.
 - **Producer-Consumer Threading:** The architecture is decoupled into two parallel threads:
