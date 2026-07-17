@@ -1,23 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Total Battle Clan Management</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;800&display=swap" rel="stylesheet">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <link rel="stylesheet" href="./assets/style.css">
-    <link rel="icon" type="image/x-icon" href="./assets/favicon.ico">
-    
+    <link rel="stylesheet" href="./style.css">
+    <link rel="icon" type="image/x-icon" href="./favicon.ico">
+
     <!-- Google Translate Script -->
     <script type="text/javascript">
         function googleTranslateElementInit() {
-            new google.translate.TranslateElement({pageLanguage: 'en'}, 'google_translate_element');
+            new google.translate.TranslateElement({ pageLanguage: 'en' }, 'google_translate_element');
         }
     </script>
-    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+    <script type="text/javascript"
+        src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
 
     <!-- Sidebar Navigation -->
@@ -56,7 +59,7 @@
 
     <!-- Main Content Area -->
     <div class="main-content" id="main-content">
-        
+
         <!-- Horizontal Navbar -->
         <div class="top-navbar">
             <div class="navbar-left">
@@ -70,7 +73,7 @@
         </div>
 
         <div class="container">
-            
+
             <!-- VIEW 0: Home -->
             <section id="home-view" class="view active">
                 <header>
@@ -79,27 +82,32 @@
                 </header>
 
                 <div class="home-cards">
-                    <a href="#" class="home-card glass-card nav-card" data-target="analytics-view" style="text-decoration: none; color: inherit;">
+                    <a href="#" class="home-card glass-card nav-card" data-target="analytics-view"
+                        style="text-decoration: none; color: inherit;">
                         <i class='bx bx-line-chart'></i>
                         <h3>Analytics</h3>
                         <p>Track weekly targets, member progress, and chest trends</p>
                     </a>
-                    <a href="#" class="home-card glass-card nav-card" data-target="leaderboard-view" style="text-decoration: none; color: inherit;">
+                    <a href="#" class="home-card glass-card nav-card" data-target="leaderboard-view"
+                        style="text-decoration: none; color: inherit;">
                         <i class='bx bx-bar-chart-alt-2'></i>
                         <h3>Leaderboard</h3>
                         <p>View weekly chest contributions and scores</p>
                     </a>
-                    <a href="#" class="home-card glass-card nav-card" data-target="management-view" style="text-decoration: none; color: inherit;">
+                    <a href="#" class="home-card glass-card nav-card" data-target="management-view"
+                        style="text-decoration: none; color: inherit;">
                         <i class='bx bx-user-circle'></i>
                         <h3>Player Management</h3>
                         <p>Add, edit, or remove clan members</p>
                     </a>
-                    <a href="#" class="home-card glass-card nav-card" data-target="settings-view" style="text-decoration: none; color: inherit;">
+                    <a href="#" class="home-card glass-card nav-card" data-target="settings-view"
+                        style="text-decoration: none; color: inherit;">
                         <i class='bx bx-cog'></i>
                         <h3>Chest Settings</h3>
                         <p>Configure weekly goals and system parameters</p>
                     </a>
-                    <a href="#" class="home-card glass-card nav-card" data-target="feedback-view" style="text-decoration: none; color: inherit;">
+                    <a href="#" class="home-card glass-card nav-card" data-target="feedback-view"
+                        style="text-decoration: none; color: inherit;">
                         <i class='bx bx-message-square-dots'></i>
                         <h3>Feedback</h3>
                         <p>Submit suggestions or feature requests</p>
@@ -110,83 +118,84 @@
             <!-- VIEW 6: Analytics Dashboard -->
             <section id="analytics-view" class="view">
                 <header>
-                    <button class="btn-secondary back-to-home-btn" style="margin-bottom: 1rem;"><i class='bx bx-arrow-back'></i> Back to Home</button>
+                    <button class="btn-secondary back-to-home-btn" style="margin-bottom: 1rem;"><i
+                            class='bx bx-arrow-back'></i> Back to Home</button>
                     <h1>Clan Analytics</h1>
                     <p>Track weekly targets, member progress, and chest trends.</p>
                 </header>
                 <div class="analytics-inner">
 
-                <!-- TARGETS ROW -->
-                <div class="analytics-card">
-                    <h3>Targets</h3>
-                    <p class="subtitle">Weekly points progression</p>
-                    <div class="progress-container">
-                        <div class="progress-labels">
-                            <span class="progress-title">CLAN WEEKLY PROGRESS</span>
-                            <span class="progress-percent" id="target-percent">0%</span>
-                        </div>
-                        <div class="progress-stats">
-                            <span id="target-text">0 / 0 points</span>
-                        </div>
-                        <div class="progress-bar-bg">
-                            <div class="progress-bar-fill" id="target-bar"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- SUMMARY ROW -->
-                <div class="analytics-row">
-                    <div class="analytics-card member-list-card">
-                        <h3>ON TRACK (<span id="on-track-count">0</span>)</h3>
-                        <div class="member-list" id="on-track-list">
-                            <!-- Injected -->
-                        </div>
-                    </div>
-
-                    <div class="analytics-card donut-card">
-                        <h3>SUMMARY</h3>
-                        <div class="chart-container-donut">
-                            <canvas id="donutChart"></canvas>
-                            <div class="donut-center-text">
-                                <h2 id="total-members-text">0</h2>
-                                <p>MEMBERS</p>
+                    <!-- TARGETS ROW -->
+                    <div class="analytics-card">
+                        <h3>Targets</h3>
+                        <p class="subtitle">Weekly points progression</p>
+                        <div class="progress-container">
+                            <div class="progress-labels">
+                                <span class="progress-title">CLAN WEEKLY PROGRESS</span>
+                                <span class="progress-percent" id="target-percent">0%</span>
+                            </div>
+                            <div class="progress-stats">
+                                <span id="target-text">0 / 0 points</span>
+                            </div>
+                            <div class="progress-bar-bg">
+                                <div class="progress-bar-fill" id="target-bar"></div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="analytics-card member-list-card">
-                        <h3>NEEDS ATTENTION (<span id="needs-attention-count">0</span>)</h3>
-                        <div class="member-list" id="needs-attention-list">
-                            <!-- Injected -->
+                    <!-- SUMMARY ROW -->
+                    <div class="analytics-row">
+                        <div class="analytics-card member-list-card">
+                            <h3>ON TRACK (<span id="on-track-count">0</span>)</h3>
+                            <div class="member-list" id="on-track-list">
+                                <!-- Injected -->
+                            </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- TRENDS ROW -->
-                <div class="analytics-card">
-                    <div class="card-header-flex">
-                        <div>
-                            <h3>Trends</h3>
-                            <p class="subtitle">Chest collection patterns over time</p>
+                        <div class="analytics-card donut-card">
+                            <h3>SUMMARY</h3>
+                            <div class="chart-container-donut">
+                                <canvas id="donutChart"></canvas>
+                                <div class="donut-center-text">
+                                    <h2 id="total-members-text">0</h2>
+                                    <p>MEMBERS</p>
+                                </div>
+                            </div>
                         </div>
-                        <div class="toggle-group">
-                            <button class="toggle-btn active" id="trend-daily-btn">Daily</button>
-                            <button class="toggle-btn" id="trend-hourly-btn">Hourly</button>
-                        </div>
-                    </div>
-                    <div class="chart-container-line">
-                        <canvas id="trendChart"></canvas>
-                    </div>
-                </div>
 
-                <!-- SOURCES ROW -->
-                <div class="analytics-card">
-                    <h3>Sources</h3>
-                    <p class="subtitle">Chest distribution by category</p>
-                    <div class="chart-container-bar">
-                        <canvas id="sourceChart"></canvas>
+                        <div class="analytics-card member-list-card">
+                            <h3>NEEDS ATTENTION (<span id="needs-attention-count">0</span>)</h3>
+                            <div class="member-list" id="needs-attention-list">
+                                <!-- Injected -->
+                            </div>
+                        </div>
                     </div>
-                </div>
+
+                    <!-- TRENDS ROW -->
+                    <div class="analytics-card">
+                        <div class="card-header-flex">
+                            <div>
+                                <h3>Trends</h3>
+                                <p class="subtitle">Chest collection patterns over time</p>
+                            </div>
+                            <div class="toggle-group">
+                                <button class="toggle-btn active" id="trend-daily-btn">Daily</button>
+                                <button class="toggle-btn" id="trend-hourly-btn">Hourly</button>
+                            </div>
+                        </div>
+                        <div class="chart-container-line">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- SOURCES ROW -->
+                    <div class="analytics-card">
+                        <h3>Sources</h3>
+                        <p class="subtitle">Chest distribution by category</p>
+                        <div class="chart-container-bar">
+                            <canvas id="sourceChart"></canvas>
+                        </div>
+                    </div>
 
                 </div> <!-- end analytics-inner -->
 
@@ -195,7 +204,8 @@
             <!-- VIEW 1: Leaderboard -->
             <section id="leaderboard-view" class="view">
                 <header>
-                    <button class="btn-secondary back-to-home-btn" style="margin-bottom: 1rem;"><i class='bx bx-arrow-back'></i> Back to Home</button>
+                    <button class="btn-secondary back-to-home-btn" style="margin-bottom: 1rem;"><i
+                            class='bx bx-arrow-back'></i> Back to Home</button>
                     <h1>Clan Weekly Contributions</h1>
                     <p>Automated Chest Extraction & Points Tally</p>
                 </header>
@@ -241,7 +251,8 @@
             <!-- VIEW 2: Player Details -->
             <section id="player-details-view" class="view">
                 <header>
-                    <button id="back-to-leaderboard" class="btn-secondary"><i class='bx bx-arrow-back'></i> Back</button>
+                    <button id="back-to-leaderboard" class="btn-secondary"><i class='bx bx-arrow-back'></i>
+                        Back</button>
                     <h1 id="details-player-name">Player Details</h1>
                     <p>Detailed chest extraction logs</p>
                 </header>
@@ -269,7 +280,8 @@
             <!-- VIEW 3: Player Management -->
             <section id="management-view" class="view">
                 <header>
-                    <button class="btn-secondary back-to-home-btn" style="margin-bottom: 1rem;"><i class='bx bx-arrow-back'></i> Back to Home</button>
+                    <button class="btn-secondary back-to-home-btn" style="margin-bottom: 1rem;"><i
+                            class='bx bx-arrow-back'></i> Back to Home</button>
                     <h1>Player Management</h1>
                     <p>Add, edit, or remove clan members</p>
                 </header>
@@ -322,11 +334,12 @@
             <!-- VIEW 4: Chest Settings -->
             <section id="settings-view" class="view">
                 <header>
-                    <button class="btn-secondary back-to-home-btn" style="margin-bottom: 1rem;"><i class='bx bx-arrow-back'></i> Back to Home</button>
+                    <button class="btn-secondary back-to-home-btn" style="margin-bottom: 1rem;"><i
+                            class='bx bx-arrow-back'></i> Back to Home</button>
                     <h1>Chest Settings</h1>
                     <p>Configure automation parameters</p>
                 </header>
-                
+
                 <div class="glass-card form-container">
                     <div class="form-group">
                         <label for="weekly-goal-input">Weekly Points Goal</label>
@@ -341,11 +354,12 @@
             <!-- VIEW 5: Feedback -->
             <section id="feedback-view" class="view">
                 <header>
-                    <button class="btn-secondary back-to-home-btn" style="margin-bottom: 1rem;"><i class='bx bx-arrow-back'></i> Back to Home</button>
+                    <button class="btn-secondary back-to-home-btn" style="margin-bottom: 1rem;"><i
+                            class='bx bx-arrow-back'></i> Back to Home</button>
                     <h1>Feedback & Bug Reports</h1>
                     <p>Submit issues directly to the development team</p>
                 </header>
-                
+
                 <div class="glass-card form-container">
                     <div class="form-group">
                         <label for="fb-username">In-Game Name</label>
@@ -353,12 +367,13 @@
                     </div>
                     <div class="form-group">
                         <label for="fb-content">Your Feedback</label>
-                        <textarea id="fb-content" class="styled-input" rows="4" placeholder="What features do you need? What should be improved?"></textarea>
+                        <textarea id="fb-content" class="styled-input" rows="4"
+                            placeholder="What features do you need? What should be improved?"></textarea>
                     </div>
                     <button id="submit-feedback-btn" class="btn-primary">Submit Feedback</button>
                     <span id="feedback-status" style="margin-left: 15px;"></span>
                 </div>
-                
+
                 <!-- Feedback Admin View (Shown below form for convenience) -->
                 <h3 style="margin-top: 3rem; margin-bottom: 1rem;">Submitted Feedback (Admin View)</h3>
                 <div class="glass-card table-wrapper">
@@ -408,4 +423,5 @@
 
     <script src="./assets/app.js"></script>
 </body>
+
 </html>
