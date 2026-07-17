@@ -26,8 +26,8 @@ class VisionEngine:
         """Pre-load commonly used templates."""
         template_paths = {
             "clan_logo": os.path.join(self.images_dir, "clan-logo.png"),
-            "gift_chests": os.path.join(self.images_dir, "clan-Gift-chests.png")
-            # We can add more as needed
+            "gift_chests": os.path.join(self.images_dir, "clan-Gift-chests.png"),
+            "back_button": os.path.join(self.images_dir, "back-button.png")
         }
         
         for name, path in template_paths.items():
@@ -53,7 +53,7 @@ class VisionEngine:
         else:
             print(f"Warning: Chest colors directory {colors_dir} not found.")
 
-    def find_template(self, screen_path, template_name, threshold=0.8):
+    def find_template(self, screen_input, template_name, threshold=0.8):
         """
         Find a pre-loaded template on the screen.
         Returns the (x, y) coordinates of the center, or None.
@@ -62,7 +62,11 @@ class VisionEngine:
             print(f"Template {template_name} not loaded.")
             return None
 
-        screen = cv2.imread(screen_path, cv2.IMREAD_COLOR)
+        if isinstance(screen_input, str):
+            screen = cv2.imread(screen_input, cv2.IMREAD_COLOR)
+        else:
+            screen = screen_input
+            
         if screen is None:
             return None
 

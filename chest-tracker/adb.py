@@ -31,8 +31,8 @@ class ADBController:
         else:
             print(f"Connected to ADB. Devices: {devices}")
 
-    def capture_screen(self, output_path="screen.png"):
-        """Capture the screen and pull it to the local machine extremely fast."""
+    def capture_screen(self):
+        """Capture the screen in-memory using exec-out and return as OpenCV BGR array."""
         cmd = ["adb"]
         if self.device_id:
             cmd.extend(["-s", self.device_id])
@@ -48,21 +48,24 @@ class ADBController:
                 import cv2
                 w, h, f = struct.unpack('<III', raw_data[:12])
                 image_bytes = raw_data[12:]
+                
                 # Check if size matches w*h*4 (RGBA)
                 if len(image_bytes) == w * h * 4:
                     img_np = np.frombuffer(image_bytes, dtype=np.uint8).reshape((h, w, 4))
                     img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGBA2BGR)
-                    cv2.imwrite(output_path, img_bgr)
-                    return output_path
+                    return img_bgr
         except Exception as e:
             print(f"Raw screencap optimization failed, falling back to PNG: {e}")
             
         # Fallback to PNG mode if raw parsing fails or geometry is unexpected
         png_cmd = cmd + ["exec-out", "screencap", "-p"]
-        with open(output_path, "wb") as f:
-            subprocess.run(png_cmd, stdout=f)
+        proc = subprocess.run(png_cmd, capture_output=True, timeout=5)
+        import numpy as np
+        import cv2
+        image_array = np.frombuffer(proc.stdout, dtype=np.uint8)
+        img_bgr = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
             
-        return output_path
+        return img_bgr
 
     def tap(self, x, y):
         """Tap at the given x, y coordinates with a slight random jitter to appear human."""

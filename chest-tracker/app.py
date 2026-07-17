@@ -174,8 +174,24 @@ def create_player(player: PlayerCreate):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("INSERT INTO players (username, rank) VALUES (%s, %s) RETURNING id", (player.username, player.rank))
+            # Find the lowest available ID (filling gaps)
+            cursor.execute("""
+                SELECT s.id 
+                FROM generate_series(1, (SELECT COALESCE(MAX(id), 0) + 1 FROM players)) AS s(id)
+                LEFT JOIN players p ON s.id = p.id
+                WHERE p.id IS NULL
+                ORDER BY s.id
+                LIMIT 1
+            """)
+            available_id = cursor.fetchone()[0]
+            
+            cursor.execute("INSERT INTO players (id, username, rank) VALUES (%s, %s, %s) RETURNING id", 
+                           (available_id, player.username, player.rank))
             new_id = cursor.fetchone()[0]
+            
+            # Keep the sequence in sync just in case
+            cursor.execute("SELECT setval('players_id_seq', (SELECT MAX(id) FROM players))")
+            
         conn.commit()
         return {"status": "success", "message": "Player created", "id": new_id}
     except Exception as e:
