@@ -20,21 +20,38 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Database Connection Settings
-DB_HOST = "localhost"
-DB_NAME = "tb_automation"
-DB_USER = "tb_user"
-DB_PASS = "tb_pass"
-DB_PORT = "5432"
+from db import get_connection as get_db, hash_password
+import base64
+from fastapi import Request, Response
 
-def get_db():
-    return psycopg2.connect(
-        host=DB_HOST,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASS,
-        port=DB_PORT
-    )
+# Basic Authentication Middleware
+@app.middleware("http")
+async def basic_auth_middleware(request: Request, call_next):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Basic "):
+        return Response(status_code=401, headers={"WWW-Authenticate": 'Basic realm="Dashboard"'})
+    
+    try:
+        decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
+        username, password = decoded.split(":", 1)
+    except Exception:
+        return Response(status_code=401, headers={"WWW-Authenticate": 'Basic realm="Dashboard"'})
+    
+    # Check DB
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT password_hash FROM users WHERE username = %s", (username,))
+            row = cursor.fetchone()
+            if not row or row[0] != hash_password(password):
+                return Response(status_code=401, headers={"WWW-Authenticate": 'Basic realm="Dashboard"'})
+    except Exception:
+        return Response(status_code=500, content="Database Error")
+    finally:
+        conn.close()
+        
+    response = await call_next(request)
+    return response
 
 # Pydantic models for request bodies
 class PlayerCreate(BaseModel):
@@ -307,6 +324,173 @@ def get_feedback():
     finally:
         conn.close()
 
+
+@app.get("/api/analytics")
+def get_analytics():
+    """Retrieve all data needed for the advanced analytics dashboard."""
+    conn = get_db()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            # 1. Get weekly goal
+            cursor.execute("SELECT value FROM settings WHERE key = 'weekly_goal'")
+            setting_row = cursor.fetchone()
+            weekly_goal = int(setting_row['value']) if setting_row else 700
+            
+            # 2. Get Targets & Summary (Current Week)
+            query_stats = """
+                WITH calculated_logs AS (
+                    SELECT 
+                        player_id,
+                        acquired_at,
+                        CASE 
+                            WHEN chest_type = 'common' THEN 
+                                CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 15 WHEN 25 THEN 30 WHEN 30 THEN 60 ELSE 0 END
+                            WHEN chest_type = 'rare' THEN
+                                CASE chest_level WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 20 WHEN 25 THEN 35 WHEN 30 THEN 65 ELSE 0 END
+                            WHEN chest_type IN ('epic', 'event') THEN
+                                CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 5 WHEN 15 THEN 10 WHEN 20 THEN 25 WHEN 25 THEN 50 WHEN 30 THEN 80 WHEN 35 THEN 140 ELSE 0 END
+                            ELSE 0
+                        END as dynamic_points
+                    FROM chest_logs
+                    WHERE acquired_at >= date_trunc('week', CURRENT_DATE)
+                )
+                SELECT 
+                    p.username,
+                    COALESCE(SUM(c.dynamic_points), 0) AS total_score,
+                    COUNT(c.player_id) as chests
+                FROM players p
+                LEFT JOIN calculated_logs c ON p.id = c.player_id
+                GROUP BY p.username
+                ORDER BY total_score DESC
+            """
+            cursor.execute(query_stats)
+            player_stats = cursor.fetchall()
+            
+            total_score = sum(p['total_score'] for p in player_stats)
+            total_chests = sum(p['chests'] for p in player_stats)
+            active_players = len(player_stats)
+            total_goal = weekly_goal * active_players if active_players > 0 else weekly_goal
+            
+            on_track_players = []
+            needs_attention_players = []
+            
+            for p in player_stats:
+                score = p['total_score']
+                diff = score - weekly_goal
+                player_data = {
+                    "username": p['username'],
+                    "score": score,
+                    "goal": weekly_goal,
+                    "diff": diff
+                }
+                if score >= weekly_goal:
+                    on_track_players.append(player_data)
+                else:
+                    needs_attention_players.append(player_data)
+            
+            # 3. Get Trends (Hourly for today)
+            query_hourly = """
+                WITH calculated_logs AS (
+                    SELECT 
+                        acquired_at,
+                        CASE 
+                            WHEN chest_type = 'common' THEN 
+                                CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 15 WHEN 25 THEN 30 WHEN 30 THEN 60 ELSE 0 END
+                            WHEN chest_type = 'rare' THEN
+                                CASE chest_level WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 20 WHEN 25 THEN 35 WHEN 30 THEN 65 ELSE 0 END
+                            WHEN chest_type IN ('epic', 'event') THEN
+                                CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 5 WHEN 15 THEN 10 WHEN 20 THEN 25 WHEN 25 THEN 50 WHEN 30 THEN 80 WHEN 35 THEN 140 ELSE 0 END
+                            ELSE 0
+                        END as dynamic_points
+                    FROM chest_logs
+                    WHERE acquired_at >= CURRENT_DATE
+                )
+                SELECT 
+                    TO_CHAR(date_trunc('hour', acquired_at), 'HH24:MI') as time_label,
+                    COUNT(*) as chests,
+                    SUM(dynamic_points) as score
+                FROM calculated_logs
+                GROUP BY date_trunc('hour', acquired_at)
+                ORDER BY date_trunc('hour', acquired_at)
+            """
+            cursor.execute(query_hourly)
+            hourly_trends = cursor.fetchall()
+            
+            # 4. Get Trends (Daily for last 7 days)
+            query_daily = """
+                WITH calculated_logs AS (
+                    SELECT 
+                        acquired_at,
+                        CASE 
+                            WHEN chest_type = 'common' THEN 
+                                CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 15 WHEN 25 THEN 30 WHEN 30 THEN 60 ELSE 0 END
+                            WHEN chest_type = 'rare' THEN
+                                CASE chest_level WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 20 WHEN 25 THEN 35 WHEN 30 THEN 65 ELSE 0 END
+                            WHEN chest_type IN ('epic', 'event') THEN
+                                CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 5 WHEN 15 THEN 10 WHEN 20 THEN 25 WHEN 25 THEN 50 WHEN 30 THEN 80 WHEN 35 THEN 140 ELSE 0 END
+                            ELSE 0
+                        END as dynamic_points
+                    FROM chest_logs
+                    WHERE acquired_at >= (CURRENT_DATE - INTERVAL '7 days')
+                )
+                SELECT 
+                    TO_CHAR(date_trunc('day', acquired_at), 'MM-DD') as time_label,
+                    COUNT(*) as chests,
+                    SUM(dynamic_points) as score
+                FROM calculated_logs
+                GROUP BY date_trunc('day', acquired_at)
+                ORDER BY date_trunc('day', acquired_at)
+            """
+            cursor.execute(query_daily)
+            daily_trends = cursor.fetchall()
+            
+            # 5. Get Sources (All time, or current week)
+            query_sources = """
+                SELECT 
+                    CASE 
+                        WHEN source ILIKE '%crypt%' THEN 'Crypts'
+                        WHEN source ILIKE '%citadel%' THEN 'Citadels'
+                        WHEN source ILIKE '%monster%' THEN 'Monsters'
+                        WHEN source ILIKE '%event%' OR source ILIKE '%triumphal%' THEN 'Events'
+                        WHEN source ILIKE '%clan wealth%' THEN 'Clan'
+                        WHEN source ILIKE '%arena%' THEN 'Arena'
+                        ELSE 'Resources'
+                    END as category,
+                    COUNT(*) as count
+                FROM chest_logs
+                WHERE acquired_at >= date_trunc('week', CURRENT_DATE)
+                GROUP BY category
+                ORDER BY count DESC
+            """
+            cursor.execute(query_sources)
+            sources = cursor.fetchall()
+
+            return {
+                "status": "success", 
+                "data": {
+                    "targets": {
+                        "total_score": total_score,
+                        "total_chests": total_chests,
+                        "total_goal": total_goal
+                    },
+                    "summary": {
+                        "total_members": active_players,
+                        "on_track_count": len(on_track_players),
+                        "needs_attention_count": len(needs_attention_players),
+                        "on_track_players": on_track_players,
+                        "needs_attention_players": needs_attention_players
+                    },
+                    "trends": {
+                        "hourly": hourly_trends,
+                        "daily": daily_trends
+                    },
+                    "sources": sources
+                }
+            }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    finally:
+        conn.close()
 
 # --- FRONTEND MOUNTING ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

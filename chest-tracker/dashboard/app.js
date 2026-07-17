@@ -4,6 +4,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentOrder = 'desc';
     let weeklyGoal = 700; // default, overwritten by fetch
     
+    // --- Analytics State ---
+    let analyticsData = null;
+    let donutChartInst = null;
+    let trendChartInst = null;
+    let sourceChartInst = null;
+    let currentTrendView = 'daily';
+    
     // --- DOM Elements ---
     const sidebar = document.getElementById('sidebar');
     const sidebarToggle = document.getElementById('sidebar-toggle');
@@ -57,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const activeNav = document.querySelector(`.nav-links li[data-view="${viewId}"]`);
         if(activeNav) activeNav.classList.add('active');
 
+        if (viewId === 'home-view') loadAnalytics();
         if (viewId === 'leaderboard-view') fetchLeaderboard();
         if (viewId === 'management-view') fetchPlayers();
         if (viewId === 'settings-view') populateSettingsForm();
@@ -401,4 +409,164 @@ document.addEventListener('DOMContentLoaded', () => {
             timer = setTimeout(() => { func.apply(this, args); }, timeout);
         };
     }
+
+    // --- Analytics Logic ---
+    async function loadAnalytics() {
+        try {
+            const response = await fetch('/api/analytics');
+            const result = await response.json();
+            if (result.status === 'success') {
+                analyticsData = result.data;
+                renderAnalytics();
+            }
+        } catch (e) {
+            console.error("Failed to load analytics:", e);
+        }
+    }
+
+    function renderAnalytics() {
+        if (!analyticsData) return;
+
+        // 1. Targets
+        const targetPercentStr = analyticsData.targets.total_goal > 0 
+            ? ((analyticsData.targets.total_score / analyticsData.targets.total_goal) * 100).toFixed(0) 
+            : 0;
+        document.getElementById('target-percent').textContent = targetPercentStr + '%';
+        document.getElementById('target-text').textContent = `${analyticsData.targets.total_score} / ${analyticsData.targets.total_goal} points`;
+        document.getElementById('target-bar').style.width = Math.min(targetPercentStr, 100) + '%';
+
+        // 2. Summary Donut
+        document.getElementById('on-track-count').textContent = analyticsData.summary.on_track_count;
+        document.getElementById('needs-attention-count').textContent = analyticsData.summary.needs_attention_count;
+        document.getElementById('total-members-text').textContent = analyticsData.summary.total_members;
+
+        if (donutChartInst) donutChartInst.destroy();
+        const ctxDonut = document.getElementById('donutChart').getContext('2d');
+        donutChartInst = new Chart(ctxDonut, {
+            type: 'doughnut',
+            data: {
+                labels: ['On Track', 'Needs Attention'],
+                datasets: [{
+                    data: [analyticsData.summary.on_track_count, analyticsData.summary.needs_attention_count],
+                    backgroundColor: ['#10b981', '#f59e0b'],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: { cutout: '75%', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+
+        // 3. Lists
+        const renderList = (containerId, players, isAttention) => {
+            const container = document.getElementById(containerId);
+            container.innerHTML = players.map(p => {
+                const percent = Math.min((p.score / p.goal) * 100, 100).toFixed(0);
+                return `
+                    <div class="member-item ${isAttention ? 'needs-attention' : ''}">
+                        <div class="member-info">
+                            <h4>${p.username}</h4>
+                            <p>${isAttention ? Math.abs(p.diff) + ' points to go' : '+' + p.diff + ' over'}</p>
+                        </div>
+                        <div class="member-stats">
+                            ${p.score} / ${p.goal}
+                            <p>${percent}%</p>
+                        </div>
+                    </div>
+                    <div class="member-progress-bg">
+                        <div class="member-progress-fill" style="width: ${percent}%"></div>
+                    </div>
+                `;
+            }).join('');
+        };
+        renderList('on-track-list', analyticsData.summary.on_track_players, false);
+        renderList('needs-attention-list', analyticsData.summary.needs_attention_players, true);
+
+        // 4. Trends
+        renderTrends();
+
+        // 5. Sources
+        if (sourceChartInst) sourceChartInst.destroy();
+        const ctxSource = document.getElementById('sourceChart').getContext('2d');
+        sourceChartInst = new Chart(ctxSource, {
+            type: 'bar',
+            data: {
+                labels: analyticsData.sources.map(s => s.category),
+                datasets: [{
+                    label: 'Chests',
+                    data: analyticsData.sources.map(s => s.count),
+                    backgroundColor: ['#6366f1', '#10b981', '#ef4444', '#6b7280', '#06b6d4', '#3b82f6', '#d946ef']
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#9ca3af' } },
+                    y: { grid: { display: false }, ticks: { color: '#e5e7eb' } }
+                }
+            }
+        });
+    }
+
+    function renderTrends() {
+        if (!analyticsData) return;
+        const dataKey = currentTrendView; // 'daily' or 'hourly'
+        const rawData = analyticsData.trends[dataKey];
+
+        if (trendChartInst) trendChartInst.destroy();
+        const ctxTrend = document.getElementById('trendChart').getContext('2d');
+        
+        trendChartInst = new Chart(ctxTrend, {
+            type: 'line',
+            data: {
+                labels: rawData.map(d => d.time_label),
+                datasets: [
+                    {
+                        label: 'Points Score',
+                        data: rawData.map(d => d.score),
+                        borderColor: '#a855f7',
+                        backgroundColor: '#a855f7',
+                        yAxisID: 'y1',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Chests Count',
+                        data: rawData.map(d => d.chests),
+                        borderColor: '#10b981',
+                        backgroundColor: '#10b981',
+                        yAxisID: 'y',
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { labels: { color: '#e5e7eb' } } },
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#9ca3af' } },
+                    y: { type: 'linear', display: true, position: 'left', grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#10b981' } },
+                    y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#a855f7' } }
+                }
+            }
+        });
+    }
+
+    // Trend toggles
+    document.getElementById('trend-daily-btn').addEventListener('click', (e) => {
+        currentTrendView = 'daily';
+        document.getElementById('trend-daily-btn').classList.add('active');
+        document.getElementById('trend-hourly-btn').classList.remove('active');
+        renderTrends();
+    });
+    
+    document.getElementById('trend-hourly-btn').addEventListener('click', (e) => {
+        currentTrendView = 'hourly';
+        document.getElementById('trend-hourly-btn').classList.add('active');
+        document.getElementById('trend-daily-btn').classList.remove('active');
+        renderTrends();
+    });
 });

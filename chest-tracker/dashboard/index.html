@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;800&display=swap" rel="stylesheet">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="/assets/style.css">
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
     
     <!-- Google Translate Script -->
     <script type="text/javascript">
@@ -15,6 +16,7 @@
         }
     </script>
     <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -65,35 +67,85 @@
 
         <div class="container">
             
-            <!-- VIEW 0: Home -->
-            <section id="home-view" class="view active">
+            <!-- VIEW 0: Analytics Dashboard -->
+            <section id="home-view" class="view active analytics-view">
                 <header>
-                    <h1>Clan Management</h1>
-                    <p>Welcome to the central automation dashboard.</p>
+                    <h1>Clan Analytics</h1>
+                    <p>Track weekly targets, member progress, and chest trends.</p>
                 </header>
 
-                <div class="home-cards">
-                    <a href="#" class="home-card glass-card nav-card" data-target="leaderboard-view" style="text-decoration: none; color: inherit;">
-                        <i class='bx bx-bar-chart-alt-2'></i>
-                        <h3>Leaderboard</h3>
-                        <p>View weekly chest contributions and scores</p>
-                    </a>
-                    <a href="#" class="home-card glass-card nav-card" data-target="management-view" style="text-decoration: none; color: inherit;">
-                        <i class='bx bx-user-circle'></i>
-                        <h3>Player Management</h3>
-                        <p>Add, edit, or remove clan members</p>
-                    </a>
-                    <a href="#" class="home-card glass-card nav-card" data-target="settings-view" style="text-decoration: none; color: inherit;">
-                        <i class='bx bx-cog'></i>
-                        <h3>Chest Settings</h3>
-                        <p>Configure weekly goals and system parameters</p>
-                    </a>
-                    <a href="#" class="home-card glass-card nav-card" data-target="feedback-view" style="text-decoration: none; color: inherit;">
-                        <i class='bx bx-message-square-dots'></i>
-                        <h3>Feedback</h3>
-                        <p>Submit suggestions or feature requests</p>
-                    </a>
+                <!-- TARGETS ROW -->
+                <div class="analytics-card">
+                    <h3>Targets</h3>
+                    <p class="subtitle">Weekly points progression</p>
+                    <div class="progress-container">
+                        <div class="progress-labels">
+                            <span class="progress-title">CLAN WEEKLY PROGRESS</span>
+                            <span class="progress-percent" id="target-percent">0%</span>
+                        </div>
+                        <div class="progress-stats">
+                            <span id="target-text">0 / 0 points</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="target-bar"></div>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- SUMMARY ROW -->
+                <div class="analytics-row">
+                    <div class="analytics-card member-list-card">
+                        <h3>ON TRACK (<span id="on-track-count">0</span>)</h3>
+                        <div class="member-list" id="on-track-list">
+                            <!-- Injected -->
+                        </div>
+                    </div>
+
+                    <div class="analytics-card donut-card">
+                        <h3>SUMMARY</h3>
+                        <div class="chart-container-donut">
+                            <canvas id="donutChart"></canvas>
+                            <div class="donut-center-text">
+                                <h2 id="total-members-text">0</h2>
+                                <p>MEMBERS</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="analytics-card member-list-card">
+                        <h3>NEEDS ATTENTION (<span id="needs-attention-count">0</span>)</h3>
+                        <div class="member-list" id="needs-attention-list">
+                            <!-- Injected -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TRENDS ROW -->
+                <div class="analytics-card">
+                    <div class="card-header-flex">
+                        <div>
+                            <h3>Trends</h3>
+                            <p class="subtitle">Chest collection patterns over time</p>
+                        </div>
+                        <div class="toggle-group">
+                            <button class="toggle-btn active" id="trend-daily-btn">Daily</button>
+                            <button class="toggle-btn" id="trend-hourly-btn">Hourly</button>
+                        </div>
+                    </div>
+                    <div class="chart-container-line">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- SOURCES ROW -->
+                <div class="analytics-card">
+                    <h3>Sources</h3>
+                    <p class="subtitle">Chest distribution by category</p>
+                    <div class="chart-container-bar">
+                        <canvas id="sourceChart"></canvas>
+                    </div>
+                </div>
+
             </section>
 
             <!-- VIEW 1: Leaderboard -->

@@ -2,13 +2,21 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime
 import difflib
+import os
+import hashlib
+from dotenv import load_dotenv
 
-# Database Connection Settings
-DB_HOST = "localhost"
-DB_NAME = "tb_automation"
-DB_USER = "tb_user"
-DB_PASS = "tb_pass"
-DB_PORT = "5432"
+load_dotenv()
+
+# Database Connection Settings from Environment Variables
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_NAME = os.getenv("DB_NAME", "tb_automation")
+DB_USER = os.getenv("DB_USER", "tb_user")
+DB_PASS = os.getenv("DB_PASS", "tb_pass")
+DB_PORT = os.getenv("DB_PORT", "5432")
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
 
 def get_connection():
     """Establish and return a database connection."""
@@ -32,6 +40,27 @@ def setup_schema():
                     username TEXT UNIQUE NOT NULL
                 )
             """)
+            
+            # Create users table for dashboard authentication
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL
+                )
+            """)
+            
+            # Seed default users if they don't exist
+            default_users = [
+                ("Shanks", hash_password("shanks123")),
+                ("Overlord", hash_password("overlord123")),
+                ("Serena", hash_password("serena123"))
+            ]
+            for user, phash in default_users:
+                cursor.execute(
+                    "INSERT INTO users (username, password_hash) VALUES (%s, %s) ON CONFLICT (username) DO NOTHING",
+                    (user, phash)
+                )
             
             # Create settings table
             cursor.execute("""
