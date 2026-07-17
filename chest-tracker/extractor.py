@@ -57,8 +57,8 @@ class ChestExtractor:
         
         # 1. Clan Logo
         print("Finding Clan Logo...")
-        screen_path = self.adb.capture_screen()
-        pos = self.vision.find_template(screen_path, "clan_logo")
+        screen_img = self.adb.capture_screen()
+        pos = self.vision.find_template(screen_img, "clan_logo")
         if pos:
             config['clan_logo'] = (int(pos[0]), int(pos[1]))
             self.adb.tap(pos[0], pos[1])
@@ -70,8 +70,8 @@ class ChestExtractor:
             
         # 2. Gift Chests
         print("Finding Gift Chests button...")
-        screen_path = self.adb.capture_screen()
-        pos = self.vision.find_template(screen_path, "gift_chests")
+        screen_img = self.adb.capture_screen()
+        pos = self.vision.find_template(screen_img, "gift_chests")
         if pos:
             config['gift_chests'] = (int(pos[0]), int(pos[1]))
             self.adb.tap(pos[0], pos[1])
@@ -83,10 +83,9 @@ class ChestExtractor:
             
         # 3. Triumphal Gifts
         print("Finding Triumphal Gifts tab...")
-        screen_path = self.adb.capture_screen()
-        img = cv2.imread(screen_path)
-        H, W = img.shape[:2]
-        results = self.vision.reader.readtext(img, detail=1)
+        screen_img = self.adb.capture_screen()
+        H, W = screen_img.shape[:2]
+        results = self.vision.reader.readtext(screen_img, detail=1)
         found_triumphal = False
         for bbox, text, conf in results:
             if "Triumphal" in text or "Triumphal Gifts" in text:
@@ -103,7 +102,7 @@ class ChestExtractor:
         # 4. Back Button & Safe Ratios
         config['back_button'] = (50, 50) # Fallback if we don't have a template for it yet
         print("Finding Back Button... (Using default template or hardcoded top-left)")
-        back_pos = self.vision.find_template(screen_path, "back_button")
+        back_pos = self.vision.find_template(screen_img, "back_button")
         if back_pos:
             config['back_button'] = (int(back_pos[0]), int(back_pos[1]))
             print(f"Found Back Button at {back_pos}")
