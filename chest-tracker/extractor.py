@@ -7,6 +7,7 @@ from db import log_chest
 from time_utils import calculate_acquired_time
 from points import calculate_points
 from datetime import datetime, timedelta, timezone
+import build_site
 
 class ChestExtractor:
     def __init__(self):
@@ -36,7 +37,9 @@ class ChestExtractor:
         print("Processing Triumphal Gifts...")
         self._process_chest_list()
         
-        print("Extraction complete.")
+        print("Extraction complete. Generating static site files...")
+        build_site.main()
+        print("Static site updated.")
         
     def _navigate_to_clan_page(self):
         print("Locating Clan logo...")
