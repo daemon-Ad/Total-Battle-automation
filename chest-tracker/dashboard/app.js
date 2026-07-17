@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Settings Logic ---
     async function fetchSettings() {
         try {
-            const response = await fetch('./api/settings.json');
+            const response = await fetch('/api/settings');
             const result = await response.json();
             if (result.status === 'success' && result.data.weekly_goal) {
                 weeklyGoal = parseInt(result.data.weekly_goal);
@@ -146,8 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ username, content })
             });
             if (response.ok) {
-                // Static mode: Hide feedback form
-                document.getElementById('feedback-section').style.display = 'none';statusSpan.style.color = '#10b981';
+                statusSpan.style.color = '#10b981';
                 statusSpan.textContent = 'Thank you for your feedback!';
                 document.getElementById('fb-username').value = '';
                 document.getElementById('fb-content').value = '';
@@ -195,33 +194,15 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingEl.classList.remove('hidden');
         tbody.innerHTML = '';
         
+        const searchQuery = searchInput.value;
+        const url = `/api/leaderboard?sort_by=${currentSortBy}&order=${currentOrder}&search=${encodeURIComponent(searchQuery)}`;
+        
         try {
-            const response = await fetch('./api/leaderboard.json');
+            const response = await fetch(url);
             const result = await response.json();
             
             if (result.status === 'success') {
-                let data = result.data;
-                const searchQuery = searchInput.value.toLowerCase();
-                
-                // Filter
-                if (searchQuery) {
-                    data = data.filter(r => r.username.toLowerCase().includes(searchQuery));
-                }
-                
-                // Sort
-                data.sort((a, b) => {
-                    let valA = a[currentSortBy];
-                    let valB = b[currentSortBy];
-                    
-                    if (typeof valA === 'string') valA = valA.toLowerCase();
-                    if (typeof valB === 'string') valB = valB.toLowerCase();
-                    
-                    if (valA < valB) return currentOrder === 'asc' ? -1 : 1;
-                    if (valA > valB) return currentOrder === 'asc' ? 1 : -1;
-                    return 0;
-                });
-                
-                renderLeaderboard(data, tbody);
+                renderLeaderboard(result.data, tbody);
             } else {
                 tbody.innerHTML = `<tr><td colspan="7">Error: ${result.message}</td></tr>`;
             }
@@ -302,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
         nameHeader.textContent = "Loading...";
 
         try {
-            const response = await fetch(`./api/chests/chests_${playerId}.json`);
+            const response = await fetch(`/api/players/${playerId}/chests`);
             const result = await response.json();
             
             if (result.status === 'success') {
@@ -356,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingEl.classList.remove('hidden');
 
         try {
-            const response = await fetch(`./api/players.json`);
+            const response = await fetch(`/api/players`);
             const result = await response.json();
             
             if (result.status === 'success') {
@@ -474,7 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Analytics Logic ---
     async function loadAnalytics() {
         try {
-            const response = await fetch('./api/analytics.json');
+            const response = await fetch('/api/analytics');
             const result = await response.json();
             if (result.status === 'success') {
                 analyticsData = result.data;
