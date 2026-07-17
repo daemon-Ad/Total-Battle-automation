@@ -136,6 +136,7 @@ body {
     opacity: 0;
 }
 
+
 /* Main Content Area */
 .main-content {
     margin-left: var(--sidebar-width);
@@ -570,7 +571,7 @@ body {
 }
 
 /* --- ANALYTICS DASHBOARD --- */
-.analytics-view {
+.analytics-inner {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;

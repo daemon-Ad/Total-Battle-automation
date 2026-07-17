@@ -31,6 +31,10 @@
                 <i class='bx bx-home-alt'></i>
                 <span class="link-name">Home</span>
             </li>
+            <li data-view="analytics-view">
+                <i class='bx bx-line-chart'></i>
+                <span class="link-name">Analytics</span>
+            </li>
             <li data-view="leaderboard-view">
                 <i class='bx bx-bar-chart-alt-2'></i>
                 <span class="link-name">Leaderboard</span>
@@ -67,12 +71,50 @@
 
         <div class="container">
             
-            <!-- VIEW 0: Analytics Dashboard -->
-            <section id="home-view" class="view active analytics-view">
+            <!-- VIEW 0: Home -->
+            <section id="home-view" class="view active">
                 <header>
+                    <h1>Clan Management</h1>
+                    <p>Welcome to the central automation dashboard.</p>
+                </header>
+
+                <div class="home-cards">
+                    <a href="#" class="home-card glass-card nav-card" data-target="analytics-view" style="text-decoration: none; color: inherit;">
+                        <i class='bx bx-line-chart'></i>
+                        <h3>Analytics</h3>
+                        <p>Track weekly targets, member progress, and chest trends</p>
+                    </a>
+                    <a href="#" class="home-card glass-card nav-card" data-target="leaderboard-view" style="text-decoration: none; color: inherit;">
+                        <i class='bx bx-bar-chart-alt-2'></i>
+                        <h3>Leaderboard</h3>
+                        <p>View weekly chest contributions and scores</p>
+                    </a>
+                    <a href="#" class="home-card glass-card nav-card" data-target="management-view" style="text-decoration: none; color: inherit;">
+                        <i class='bx bx-user-circle'></i>
+                        <h3>Player Management</h3>
+                        <p>Add, edit, or remove clan members</p>
+                    </a>
+                    <a href="#" class="home-card glass-card nav-card" data-target="settings-view" style="text-decoration: none; color: inherit;">
+                        <i class='bx bx-cog'></i>
+                        <h3>Chest Settings</h3>
+                        <p>Configure weekly goals and system parameters</p>
+                    </a>
+                    <a href="#" class="home-card glass-card nav-card" data-target="feedback-view" style="text-decoration: none; color: inherit;">
+                        <i class='bx bx-message-square-dots'></i>
+                        <h3>Feedback</h3>
+                        <p>Submit suggestions or feature requests</p>
+                    </a>
+                </div>
+            </section>
+
+            <!-- VIEW 6: Analytics Dashboard -->
+            <section id="analytics-view" class="view">
+                <header>
+                    <button class="btn-secondary back-to-home-btn" style="margin-bottom: 1rem;"><i class='bx bx-arrow-back'></i> Back to Home</button>
                     <h1>Clan Analytics</h1>
                     <p>Track weekly targets, member progress, and chest trends.</p>
                 </header>
+                <div class="analytics-inner">
 
                 <!-- TARGETS ROW -->
                 <div class="analytics-card">
@@ -146,11 +188,14 @@
                     </div>
                 </div>
 
+                </div> <!-- end analytics-inner -->
+
             </section>
 
             <!-- VIEW 1: Leaderboard -->
             <section id="leaderboard-view" class="view">
                 <header>
+                    <button class="btn-secondary back-to-home-btn" style="margin-bottom: 1rem;"><i class='bx bx-arrow-back'></i> Back to Home</button>
                     <h1>Clan Weekly Contributions</h1>
                     <p>Automated Chest Extraction & Points Tally</p>
                 </header>
@@ -224,6 +269,7 @@
             <!-- VIEW 3: Player Management -->
             <section id="management-view" class="view">
                 <header>
+                    <button class="btn-secondary back-to-home-btn" style="margin-bottom: 1rem;"><i class='bx bx-arrow-back'></i> Back to Home</button>
                     <h1>Player Management</h1>
                     <p>Add, edit, or remove clan members</p>
                 </header>
@@ -255,8 +301,9 @@
             <!-- VIEW 4: Chest Settings -->
             <section id="settings-view" class="view">
                 <header>
+                    <button class="btn-secondary back-to-home-btn" style="margin-bottom: 1rem;"><i class='bx bx-arrow-back'></i> Back to Home</button>
                     <h1>Chest Settings</h1>
-                    <p>Configure dashboard parameters and rules</p>
+                    <p>Configure automation parameters</p>
                 </header>
                 
                 <div class="glass-card form-container">
@@ -273,8 +320,9 @@
             <!-- VIEW 5: Feedback -->
             <section id="feedback-view" class="view">
                 <header>
-                    <h1>Feedback & Suggestions</h1>
-                    <p>Submit your ideas to improve the system</p>
+                    <button class="btn-secondary back-to-home-btn" style="margin-bottom: 1rem;"><i class='bx bx-arrow-back'></i> Back to Home</button>
+                    <h1>Feedback & Bug Reports</h1>
+                    <p>Submit issues directly to the development team</p>
                 </header>
                 
                 <div class="glass-card form-container">

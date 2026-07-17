@@ -56,6 +56,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    document.querySelectorAll('.back-to-home-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchView('home-view');
+        });
+    });
+
     function switchView(viewId) {
         views.forEach(view => view.classList.remove('active'));
         document.getElementById(viewId).classList.add('active');
@@ -64,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const activeNav = document.querySelector(`.nav-links li[data-view="${viewId}"]`);
         if(activeNav) activeNav.classList.add('active');
 
-        if (viewId === 'home-view') loadAnalytics();
+        if (viewId === 'analytics-view') loadAnalytics();
         if (viewId === 'leaderboard-view') fetchLeaderboard();
         if (viewId === 'management-view') fetchPlayers();
         if (viewId === 'settings-view') populateSettingsForm();
