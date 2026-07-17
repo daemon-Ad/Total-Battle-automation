@@ -355,12 +355,22 @@ document.addEventListener('DOMContentLoaded', () => {
         renderManagement();
     });
 
+    document.getElementById('management-search').addEventListener('input', () => {
+        renderManagement();
+    });
+
     function renderManagement() {
         const tbody = document.getElementById('management-body');
         tbody.innerHTML = '';
         
         const filterRank = document.getElementById('management-rank-filter').value;
-        const filteredPlayers = filterRank === 'All' ? allManagementPlayers : allManagementPlayers.filter(p => p.rank === filterRank);
+        const searchQuery = document.getElementById('management-search').value.trim().toLowerCase();
+        
+        const filteredPlayers = allManagementPlayers.filter(p => {
+            const matchesRank = filterRank === 'All' || p.rank === filterRank;
+            const matchesSearch = !searchQuery || p.username.toLowerCase().includes(searchQuery);
+            return matchesRank && matchesSearch;
+        });
 
         filteredPlayers.forEach(p => {
             const tr = document.createElement('tr');
@@ -391,14 +401,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const rank = rankInput.value;
         if (!name) return;
         
-        await fetch('/api/players', {
+        const response = await fetch('/api/players', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: name, rank: rank })
         });
         
-        input.value = '';
-        fetchPlayers();
+        const result = await response.json();
+        if (result.status === 'error') {
+            alert("Error adding player: " + result.message);
+        } else {
+            input.value = '';
+            fetchPlayers();
+        }
     });
 
     let currentEditingPlayerId = null;
