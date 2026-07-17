@@ -9,6 +9,10 @@ pip-delete-this-directory.txt
 pip-log.txt
 pip-selfcheck.json
 
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
 # IDEs and editors
 .vscode/
 .idea/
