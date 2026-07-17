@@ -359,6 +359,12 @@ document.addEventListener('DOMContentLoaded', () => {
         renderManagement();
     });
 
+    function fuzzyMatch(pattern, str) {
+        pattern = '.*' + pattern.split('').join('.*') + '.*';
+        const re = new RegExp(pattern, 'i');
+        return re.test(str);
+    }
+
     function renderManagement() {
         const tbody = document.getElementById('management-body');
         tbody.innerHTML = '';
@@ -368,7 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const filteredPlayers = allManagementPlayers.filter(p => {
             const matchesRank = filterRank === 'All' || p.rank === filterRank;
-            const matchesSearch = !searchQuery || p.username.toLowerCase().includes(searchQuery);
+            const matchesSearch = !searchQuery || fuzzyMatch(searchQuery, p.username);
             return matchesRank && matchesSearch;
         });
 
