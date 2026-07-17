@@ -39,3 +39,4 @@ yarn-error.log*
 # Specific files to ignore
 research-1-dashboard.html
 .env
+project_chest-tracker_report.md
