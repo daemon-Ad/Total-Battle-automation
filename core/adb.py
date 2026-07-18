@@ -52,18 +52,23 @@ class ADBController:
             print("ERROR: adb screencap timed out!")
             return None
 
-    def tap(self, x, y):
+    def tap(self, x, y, jitter_range=15):
         """Tap at the given x, y coordinates with a slight random jitter to appear human."""
-        jitter_x = random.randint(-5, 5)
-        jitter_y = random.randint(-5, 5)
+        jitter_x = random.randint(-jitter_range, jitter_range)
+        jitter_y = random.randint(-jitter_range, jitter_range)
         
         final_x = max(0, x + jitter_x)
         final_y = max(0, y + jitter_y)
         
         self._adb_command("shell", "input", "tap", str(final_x), str(final_y))
         
-        # Human-like delay after tapping (reduced per request)
-        time.sleep(random.uniform(0.1, 0.2))
+        # Human-like delay after tapping (randomized)
+        time.sleep(random.uniform(0.15, 0.35))
+
+    def back(self):
+        """Press the Android Back button to close menus/popups."""
+        self._adb_command("shell", "input", "keyevent", "4")
+        time.sleep(1)
 
     def swipe(self, x1, y1, x2, y2, duration_ms=500):
         """Swipe from (x1, y1) to (x2, y2)."""

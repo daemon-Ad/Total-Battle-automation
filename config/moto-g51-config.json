@@ -19,25 +19,9 @@
         "min": 0.22560975609756098,
         "max": 0.8943089430894309
     },
-    "watchtower_icon": [
-        49,
-        2027
-    ],
-    "crypts_tab": [
-        678,
-        480
-    ],
-    "go_button": [
-        852,
-        1055
-    ],
     "center_screen": [
         540,
         1230
-    ],
-    "explore_button": [
-        543,
-        1839
     ],
     "carter_slot": [
         269,
@@ -55,16 +39,36 @@
         337,
         1605
     ],
-    "explore_launch_button": [
+    "crypter_watchtower_icon": [
+        49,
+        2027
+    ],
+    "crypter_crypts_tab": [
+        678,
+        480
+    ],
+    "crypter_go_button": [
+        852,
+        1055
+    ],
+    "crypter_explore_button": [
+        543,
+        1839
+    ],
+    "crypter_explore_launch_button": [
         700,
         1768
     ],
-    "speedup_button": [
+    "crypter_speedup_button": [
         670,
         340
     ],
-    "use_button": [
+    "crypter_use_button": [
         836,
         612
-    ]
+    ],
+    "crypter_watchtower_load_wait": 2.0,
+    "crypter_go_to_center_wait": 3.0,
+    "crypter_speedup_loop_wait": 3.0,
+    "crypter_taskbar_close_wait": 1.5
 }
