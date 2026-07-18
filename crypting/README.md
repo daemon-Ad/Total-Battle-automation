@@ -2,6 +2,13 @@
 
 An automated, high-performance script designed to handle the crypting process in Total Battle. This project automates repetitive crypting tasks by driving the game directly via ADB (Android Debug Bridge), using computer vision to navigate the UI, verify captain availability, manage Tar resources, and efficiently deploy march speedups.
 
+## Technology Stack
+
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+![OpenCV](https://img.shields.io/badge/opencv-%23white.svg?style=for-the-badge&logo=opencv&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white)
+![Android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)
+
 ## System Overview
 
 This automation eliminates the manual grind of sending marches to crypts. It is designed to be robust and efficient, adapting to the game's UI and ensuring optimal resource usage.
