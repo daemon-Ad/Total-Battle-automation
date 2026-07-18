@@ -370,7 +370,10 @@ class ChestExtractor:
                     elif level >= 20: level = 5
                     chest_type = "common"
                     
-                if "dark omens" in source_lower or "dark omens" in title_lower:
+                if "summoning" in source_lower and "dark" in source_lower and "omens" in source_lower:
+                    chest_type = "epic"
+                    level = 30
+                elif "dark omens" in source_lower or "dark omens" in title_lower:
                     chest_type = "event"
                     if level < 20:
                         level = 20
