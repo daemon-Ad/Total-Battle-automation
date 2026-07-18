@@ -370,6 +370,22 @@ class ChestExtractor:
                     elif level >= 20: level = 5
                     chest_type = "common"
                     
+                if "dark omens" in source_lower or "dark omens" in title_lower:
+                    chest_type = "event"
+                    if level < 20:
+                        level = 20
+                        
+                if "olympus" in source_lower or "olympus" in title_lower:
+                    chest_type = "event"
+                    level = 25
+                    
+                if "ragnarok" in source_lower or "ragnarok" in title_lower:
+                    chest_type = "event"
+                    level = 25
+                    
+                if "tartaros" in source_lower or "tartaros" in title_lower:
+                    chest_type = "epic"
+                        
                 if is_expired and level == 0:
                     level = 20
                     chest_type = "common"
