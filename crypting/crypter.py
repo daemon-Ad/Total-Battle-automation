@@ -4,6 +4,7 @@ import time
 import json
 import cv2
 import numpy as np
+import random
 
 # Ensure we can import from core (sys.path hack since script is in a subdirectory)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -37,12 +38,26 @@ class Crypter:
         with open(self.config_path, 'w') as f:
             json.dump(self.config, f, indent=4)
 
-    def _get_or_find_location(self, key, template_name, screen_img=None, threshold=0.7, tap=False, delay=0.7):
+    def _sleep(self, base_time):
+        """Sleep using a Log-Normal curve to guarantee safe minimum times with human-like long tails."""
+        # Log-Normal distribution perfectly mimics human delay/distraction patterns.
+        # mu=-0.5, sigma=0.8 means median extra delay is ~0.6s, but frequently hits 1-3s, and rarely 5-8s.
+        extra = random.lognormvariate(-0.5, 0.8)
+        actual_time = (base_time * 0.95) + extra
+        time.sleep(actual_time)
+
+    def _get_or_find_location(self, key, template_name, screen_img=None, threshold=0.7, tap=False, delay=0.7, short_press=False):
+        template_path = os.path.join(self.images_dir, template_name)
+        template_img = cv2.imread(template_path, cv2.IMREAD_COLOR)
+        box_dims = None
+        if template_img is not None:
+            box_dims = (template_img.shape[1], template_img.shape[0])
+            
         if key in self.config:
             loc = tuple(self.config[key])
             if tap:
-                self.adb.tap(loc[0], loc[1])
-                time.sleep(delay) # Small gap for UI to load
+                self.adb.tap(loc[0], loc[1], short_press=short_press, box_dims=box_dims)
+                self._sleep(delay) # Small gap for UI to load
             return loc
         
         print(f"Finding location for '{key}' using template '{template_name}'...")
@@ -72,8 +87,8 @@ class Crypter:
             self._save_config()
             print(f"Saved '{key}' at {center}")
             if tap:
-                self.adb.tap(center[0], center[1])
-                time.sleep(delay)
+                self.adb.tap(center[0], center[1], short_press=short_press, box_dims=box_dims)
+                self._sleep(delay)
             return center
             
         print(f"Could not find '{key}' on screen.")
@@ -141,18 +156,18 @@ class Crypter:
                     self._save_config()
                     print(f"Saved 'city_icon' at {center}")
                     self.adb.tap(center[0], center[1])
-                    time.sleep(2.0)
+                    self._sleep(2.0)
                     return
                     
         print("WARNING: Could not find city/map icon for recovery.")
 
-    def _find_and_tap_dynamic(self, template_name, retries=3, wait=1.0, threshold=0.7, delay=0.7):
+    def _find_and_tap_dynamic(self, template_name, retries=3, wait=1.0, threshold=0.85, delay=0.7):
         """Dynamically find a template on screen without using the config cache. Ideal for lagging UI."""
         print(f"Dynamically looking for '{template_name}' (bypassing config cache)...")
         for attempt in range(retries):
             screen_img = self.adb.capture_screen()
             if screen_img is None: 
-                time.sleep(wait)
+                self._sleep(wait)
                 continue
                 
             template_path = os.path.join(self.images_dir, template_name)
@@ -165,19 +180,44 @@ class Crypter:
             
             if max_val >= threshold:
                 center = (max_loc[0] + w // 2, max_loc[1] + h // 2)
-                self.adb.tap(center[0], center[1])
-                time.sleep(delay)
+                print(f"Found {template_name} with confidence {max_val:.2f}")
+                self.adb.tap(center[0], center[1], box_dims=(w, h))
+                self._sleep(delay)
                 return center
                 
-            print(f"Attempt {attempt+1}/{retries}: Could not find {template_name}. Waiting {wait}s...")
-            time.sleep(wait)
+            print(f"Attempt {attempt+1}/{retries}: Could not find {template_name} (Best match: {max_val:.2f}). Waiting {wait}s...")
+            self._sleep(wait)
             
         return None
+
+    def _perform_random_distraction(self):
+        """Simulate a user performing other in-game tasks while waiting for a march to finish."""
+        print("--- Initiating Interleaved Distraction Task ---")
+        # In the future, this will block and call Clan Chests, Help All, etc. from other scripts.
+        # For now, we simulate this by tapping the city icon, waiting, and returning.
+        
+        print("Distraction: Navigating to City/Clan view...")
+        if 'city_icon' in self.config:
+            loc = self.config['city_icon']
+            self.adb.tap(loc[0], loc[1])
+        else:
+            # Fallback to recovery logic which will find and tap it
+            self._recover_via_city_icon()
+            
+        # Simulate time spent doing tasks in another menu (e.g. 5 to 20 seconds)
+        distraction_time = random.uniform(5.0, 20.0)
+        print(f"Distraction: Simulating task for {distraction_time:.1f}s...")
+        time.sleep(distraction_time) # We use raw sleep here because it's already highly randomized
+        
+        # We use the robust recovery method to guarantee we return to the map safely
+        print("Distraction complete. Returning to map...")
+        self._recover_via_city_icon()
+        print("--- Resuming Crypting Wait Loop ---")
 
     def _speedup_sequence(self, is_last_iteration):
         """Steps 11-12: Handle march time and speedups"""
         print("Waiting for taskbar to appear...")
-        time.sleep(1) # Wait for task bar
+        self._sleep(1) # Wait for task bar
         
         screen_img = self.adb.capture_screen()
         if screen_img is None: return False
@@ -186,7 +226,7 @@ class Crypter:
             print("ERROR: Could not find speedup button.")
             return False
             
-        time.sleep(1) # Wait for Use button to appear
+        self._sleep(1) # Wait for Use button to appear
         
         screen_img = self.adb.capture_screen()
         if screen_img is None: return False
@@ -199,9 +239,15 @@ class Crypter:
         uses = 5
         print(f"Tapping Use button {uses} times.")
         
+        use_template_path = os.path.join(self.images_dir, 'use-button.png')
+        use_template = cv2.imread(use_template_path, cv2.IMREAD_COLOR)
+        box_dims = None
+        if use_template is not None:
+            box_dims = (use_template.shape[1], use_template.shape[0])
+        
         for _ in range(uses):
-            self.adb.tap(use_btn_loc[0], use_btn_loc[1])
-            time.sleep(0.35)
+            self.adb.tap(use_btn_loc[0], use_btn_loc[1], short_press=True, box_dims=box_dims)
+            self._sleep(0.35)
             
         if is_last_iteration:
             print("Last iteration reached. Terminating without wait time.")
@@ -209,7 +255,7 @@ class Crypter:
             
         wait_taskbar = self.config.get('crypter_taskbar_close_wait', 1.5)
         print(f"Waiting {wait_taskbar}s before closing taskbar...")
-        time.sleep(wait_taskbar)
+        self._sleep(wait_taskbar)
         
         # Tap back button to return to home screen map
         print("Pressing back button to return to homescreen.")
@@ -218,12 +264,12 @@ class Crypter:
         # Visual Wait Loop: Wait until speedup button disappears from homescreen
         print("Waiting on homescreen for march to complete...")
         speedup_img = cv2.imread(os.path.join(self.images_dir, 'speedup-button.png'), cv2.IMREAD_COLOR)
-        wait_speedup = self.config.get('crypter_speedup_loop_wait', 3.0)
+        wait_speedup = self.config.get('crypter_speedup_loop_wait', 5.0)
         
         while True:
             screen_img = self.adb.capture_screen()
             if screen_img is None:
-                time.sleep(2)
+                self._sleep(2)
                 continue
             
             # Check if speedup button is visible on screen
@@ -235,7 +281,12 @@ class Crypter:
                 break
                 
             print(f"Carter is still marching... waiting {wait_speedup}s.")
-            time.sleep(wait_speedup)
+            
+            # 20% chance to perform a distraction instead of just waiting
+            if random.random() < 0.20:
+                self._perform_random_distraction()
+            else:
+                self._sleep(wait_speedup)
             
         return True
 
@@ -259,7 +310,7 @@ class Crypter:
                     break
                     
             print(f"Waiting {wait_watchtower}s for Watchtower list to fully refresh and stabilize...")
-            time.sleep(wait_watchtower)
+            self._sleep(wait_watchtower)
             
             # Step 4: Go button (First crypt)
             print("Step 4: Finding Go Button...")
@@ -267,19 +318,19 @@ class Crypter:
                 self._recover_via_city_icon()
                 continue
             # Increased time to let the UI map center smoothly
-            time.sleep(wait_center)
+            self._sleep(wait_center)
             
             # Step 5 & 6: Center tap (skipping redline check)
             print("Step 6: Tapping Center of Screen...")
             screen_img = self.adb.capture_screen()
             if screen_img is None: 
                 print("Screen capture failed, aborting iteration.")
-                self._recover_to_map()
+                self._recover_via_city_icon()
                 continue
                 
             center_loc = self._get_center_screen(screen_img)
             self.adb.tap(center_loc[0], center_loc[1])
-            time.sleep(1.0)
+            self._sleep(1.0)
             
             # Step 7: Explore button
             print("Step 7: Visually Finding Explore Button...")

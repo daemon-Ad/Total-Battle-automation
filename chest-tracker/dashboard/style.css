@@ -6,6 +6,8 @@
     --primary-subtle: rgba(0, 97, 57, 0.15);
     --success-indicator: #006139;
     --high-score: #10b981;
+    --status-success: #10b981;
+    --status-warning: #f59e0b;
 
     /* Backgrounds */
     --bg-base: #121212;
@@ -443,6 +445,9 @@ tr:nth-child(3) .rank-badge { background: rgba(180, 83, 9, 0.1); border-color: #
 
 /* Horizontal Navbar */
 .top-navbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
     height: 80px;
     background-color: var(--bg-surface);
     border-bottom: 1px solid var(--border-standard);
@@ -450,6 +455,11 @@ tr:nth-child(3) .rank-badge { background: rgba(180, 83, 9, 0.1); border-color: #
     justify-content: space-between;
     align-items: center;
     padding: 0 2rem;
+}
+
+.navbar-right {
+    display: flex;
+    align-items: center;
 }
 
 .nav-brand {

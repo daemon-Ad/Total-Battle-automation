@@ -154,7 +154,8 @@ def setup_schema():
         print("Schema setup successfully.")
     except Exception as e:
         conn.rollback()
-        print(f"Error setting up schema: {e}")
+        import sys
+        print(f"Error setting up schema: {e}", file=sys.stderr)
     finally:
         conn.close()
 
@@ -188,7 +189,8 @@ def match_player(username: str) -> int:
             # If nothing was found, return Unknown Player (98)
             return 98
     except Exception as e:
-        print(f"Error matching player: {e}")
+        import sys
+        print(f"Error matching player: {e}", file=sys.stderr)
         return 98
     finally:
         conn.close()
@@ -207,7 +209,8 @@ def log_chest(username: str, title: str, chest_type: str, level: int, source: st
         print(f"Logged chest: {title} (Level {level}) from {username} (Matched ID: {player_id})")
     except Exception as e:
         conn.rollback()
-        print(f"Error logging chest: {e}")
+        import sys
+        print(f"Error logging chest: {e}", file=sys.stderr)
     finally:
         conn.close()
 

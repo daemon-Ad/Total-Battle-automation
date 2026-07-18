@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let trendChartInst = null;
     let sourceChartInst = null;
     let currentTrendView = 'daily';
+    let currentSourceView = 'daily';
     
     // --- DOM Elements ---
     const sidebar = document.getElementById('sidebar');
@@ -63,6 +64,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    document.getElementById('global-back-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        // If we are on player details, go back to leaderboard. Otherwise go home.
+        if (document.getElementById('player-details-view').classList.contains('active')) {
+            switchView('leaderboard-view');
+        } else {
+            switchView('home-view');
+        }
+    });
+
     function switchView(viewId) {
         views.forEach(view => view.classList.remove('active'));
         document.getElementById(viewId).classList.add('active');
@@ -70,6 +81,14 @@ document.addEventListener('DOMContentLoaded', () => {
         navLinks.forEach(nav => nav.classList.remove('active'));
         const activeNav = document.querySelector(`.nav-links li[data-view="${viewId}"]`);
         if(activeNav) activeNav.classList.add('active');
+
+        // Global Back Button visibility
+        const backBtn = document.getElementById('global-back-btn');
+        if (viewId === 'home-view') {
+            backBtn.style.display = 'none';
+        } else {
+            backBtn.style.display = 'flex';
+        }
 
         if (viewId === 'analytics-view') loadAnalytics();
         if (viewId === 'leaderboard-view') fetchLeaderboard();
@@ -548,15 +567,23 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTrends();
 
         // 5. Sources
+        renderSources();
+    }
+
+    function renderSources() {
+        if (!analyticsData) return;
+        
+        const rawData = analyticsData.sources[currentSourceView] || [];
+        
         if (sourceChartInst) sourceChartInst.destroy();
         const ctxSource = document.getElementById('sourceChart').getContext('2d');
         sourceChartInst = new Chart(ctxSource, {
             type: 'bar',
             data: {
-                labels: analyticsData.sources.map(s => s.category),
+                labels: rawData.map(s => s.category),
                 datasets: [{
                     label: 'Chests',
-                    data: analyticsData.sources.map(s => s.count),
+                    data: rawData.map(s => s.count),
                     backgroundColor: ['#6366f1', '#10b981', '#ef4444', '#6b7280', '#06b6d4', '#3b82f6', '#d946ef']
                 }]
             },
@@ -575,7 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderTrends() {
         if (!analyticsData) return;
-        const dataKey = currentTrendView; // 'daily' or 'hourly'
+        const dataKey = currentTrendView; // 'daily' or 'weekly'
         const rawData = analyticsData.trends[dataKey];
 
         if (trendChartInst) trendChartInst.destroy();
@@ -622,14 +649,29 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('trend-daily-btn').addEventListener('click', (e) => {
         currentTrendView = 'daily';
         document.getElementById('trend-daily-btn').classList.add('active');
-        document.getElementById('trend-hourly-btn').classList.remove('active');
+        document.getElementById('trend-weekly-btn').classList.remove('active');
         renderTrends();
     });
     
-    document.getElementById('trend-hourly-btn').addEventListener('click', (e) => {
-        currentTrendView = 'hourly';
-        document.getElementById('trend-hourly-btn').classList.add('active');
+    document.getElementById('trend-weekly-btn').addEventListener('click', (e) => {
+        currentTrendView = 'weekly';
+        document.getElementById('trend-weekly-btn').classList.add('active');
         document.getElementById('trend-daily-btn').classList.remove('active');
         renderTrends();
+    });
+
+    // Source toggles
+    ['daily', 'weekly', 'monthly'].forEach(view => {
+        const btn = document.getElementById(`source-${view}-btn`);
+        if(btn) {
+            btn.addEventListener('click', () => {
+                currentSourceView = view;
+                ['daily', 'weekly', 'monthly'].forEach(v => {
+                    document.getElementById(`source-${v}-btn`).classList.remove('active');
+                });
+                btn.classList.add('active');
+                renderSources();
+            });
+        }
     });
 });

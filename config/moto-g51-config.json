@@ -69,6 +69,11 @@
     ],
     "crypter_watchtower_load_wait": 2.0,
     "crypter_go_to_center_wait": 3.0,
-    "crypter_speedup_loop_wait": 3.0,
-    "crypter_taskbar_close_wait": 1.5
+    "crypter_speedup_loop_wait": 5.0,
+    "crypter_taskbar_close_wait": 1.5,
+    "daily_crypt_target": 15,
+    "city_icon": [
+        92,
+        2386
+    ]
 }

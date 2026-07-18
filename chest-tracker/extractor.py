@@ -7,8 +7,28 @@ import sys
 import cv2
 import threading
 import queue
-from datetime import datetime, timezone, timedelta
-from adb import ADBController
+import warnings
+
+# Suppress PyTorch DataLoader pin_memory warnings
+warnings.filterwarnings("ignore", message=".*pin_memory.*")
+
+# Redirect all standard output (prints) to a log file to keep the terminal clean
+class LogRedirector:
+    def __init__(self, filename="extractor.log"):
+        self.log_file = open(filename, "a", encoding="utf-8")
+        
+    def write(self, message):
+        self.log_file.write(message)
+        self.log_file.flush()
+        
+    def flush(self):
+        self.log_file.flush()
+
+sys.stdout = LogRedirector()
+
+# Hook into the root anti-telemetry adb engine
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core.adb import ADBController
 from vision import VisionEngine
 from db import log_chest
 from time_utils import calculate_acquired_time
@@ -20,6 +40,8 @@ class ChestExtractor:
         self.adb = ADBController()
         self.vision = VisionEngine()
         self.run_active = False
+        self.session_limit = random.randint(20, 80)
+        self.chests_opened_this_session = 0
         
         self.task_queue = queue.Queue()
         self.ocr_thread = None
@@ -136,14 +158,14 @@ class ChestExtractor:
         
         # 3. Process Gifts Tab
         print("Processing Gifts...")
-        self._process_chest_list()
+        self._process_chest_list(is_triumphal=False)
         
         # 4. Process Triumphal Gifts Tab
         print("Switching to Triumphal Gifts...")
         self._navigate_to_triumphal_gifts()
         
         print("Processing Triumphal Gifts...")
-        self._process_chest_list()
+        self._process_chest_list(is_triumphal=True)
         
         print("Extraction complete. Shutting down OCR thread...")
         self.run_active = False
@@ -152,10 +174,11 @@ class ChestExtractor:
         
         print("Returning to homepage...")
         back_pos = self.device_config.get('back_button', (50, 50))
-        self.adb.tap(back_pos[0], back_pos[1])
-        time.sleep(1)
-        self.adb.tap(back_pos[0], back_pos[1])
+        self.adb.back(back_btn_loc=back_pos)
+        time.sleep(1.5)
+        self.adb.back(back_btn_loc=back_pos)
         print("All done.")
+        
     def _navigate_to_clan_page(self):
         print("Navigating to Clan page using cached config...")
         pos = self.device_config.get('clan_logo')
@@ -169,7 +192,8 @@ class ChestExtractor:
         print("Navigating to Gift Chests using cached config...")
         pos = self.device_config.get('gift_chests')
         if pos and pos != [0, 0]:
-            self.adb.tap(pos[0], pos[1])
+            # Use exact dimensions of the Gift Chests banner to perfectly scatter the tap
+            self.adb.tap(pos[0], pos[1], box_dims=(1069, 113))
             time.sleep(3)
         else:
             print("No valid gift chests coords in config.")
@@ -183,7 +207,7 @@ class ChestExtractor:
         else:
             print("No valid Triumphal tab coords in config.")
 
-    def _process_chest_list(self):
+    def _process_chest_list(self, is_triumphal=False):
         empty_retries = 0
         while self.run_active:
             screen_img = self.adb.capture_screen()
@@ -198,8 +222,16 @@ class ChestExtractor:
             # 1. Dynamic Safe Zone Calculation
             safe_ratios = self.device_config.get('safe_zone_ratios', {"min": 555/2460, "max": 2200/2460})
             min_y = int(H * safe_ratios["min"])
-            max_y = int(H * safe_ratios["max"])
             
+            # Randomize chest batch reading size (2, 4, or 5)
+            batch_choice = random.choice([2, 4, 5])
+            if batch_choice == 2:
+                max_y = min(1300, H)
+            elif batch_choice == 4:
+                max_y = min(1900, H)
+            else:
+                max_y = int(H * safe_ratios["max"])
+                
             # 2. Fast Button Discovery
             crop_x1 = int(W * 0.6) # Only scan right 40% for buttons
             img_btn_crop = screen_img[:, crop_x1:]
@@ -261,17 +293,51 @@ class ChestExtractor:
                 
             # 4. Batch Tapping (Fast UI Driving)
             if chests_processed > 0:
-                top_btn = open_buttons[0]
-                cx = int((top_btn[0][0] + top_btn[2][0]) / 2)
-                cy = int((top_btn[0][1] + top_btn[2][1]) / 2)
-                
                 print(f"[Driver] Found {chests_processed} chests. Queued for OCR. Tapping instantly.")
-                for _ in range(chests_processed):
-                    self.adb.tap(cx, cy)
+                for btn_bbox in open_buttons:
+                    cx = int((btn_bbox[0][0] + btn_bbox[2][0]) / 2)
+                    cy = int((btn_bbox[0][1] + btn_bbox[2][1]) / 2)
+                    
+                    # Calculate box_dims directly from the OCR text bounding box 
+                    # (This restricts the Gaussian scatter entirely inside the 'Open' word)
+                    w = int(btn_bbox[2][0] - btn_bbox[0][0])
+                    h = int(btn_bbox[2][1] - btn_bbox[0][1])
+                    
+                    self.adb.tap(cx, cy, box_dims=(w, h))
                     time.sleep(0.3) # Wait for animation/slide
                 
                 # Wait for the next batch of chests to slide all the way up
                 time.sleep(0.3)
+                
+                # --- Orchestration Pause Logic ---
+                self.chests_opened_this_session += chests_processed
+                
+                if self.chests_opened_this_session >= self.session_limit:
+                    print(f"Orchestrator Limit Reached: Opened {self.chests_opened_this_session} chests this session.")
+                    print("Entering deep sleep for human distraction simulation...")
+                    
+                    # Navigate back to Map/City
+                    back_pos = self.device_config.get('back_button', (50, 50))
+                    self.adb.back(back_btn_loc=back_pos)
+                    time.sleep(1.5)
+                    self.adb.back(back_btn_loc=back_pos)
+                    
+                    # Sleep 2-3 minutes
+                    deep_sleep_secs = random.uniform(120, 180)
+                    print(f"Sleeping for {deep_sleep_secs/60:.1f} minutes...")
+                    time.sleep(deep_sleep_secs)
+                    
+                    print("Waking up! Returning to Clan Gift Chests...")
+                    self._navigate_to_clan_page()
+                    self._navigate_to_gift_chests()
+                    if is_triumphal:
+                        self._navigate_to_triumphal_gifts()
+                    
+                    # Reset orchestration limit
+                    self.session_limit = random.randint(20, 80)
+                    self.chests_opened_this_session = 0
+                    print(f"New session limit set to {self.session_limit} chests.")
+                    
             else:
                 print("Failed to process any chests in this batch. Retrying...")
                 time.sleep(1)

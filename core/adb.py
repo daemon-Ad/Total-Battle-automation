@@ -52,23 +52,78 @@ class ADBController:
             print("ERROR: adb screencap timed out!")
             return None
 
-    def tap(self, x, y, jitter_range=15):
-        """Tap at the given x, y coordinates with a slight random jitter to appear human."""
-        jitter_x = random.randint(-jitter_range, jitter_range)
-        jitter_y = random.randint(-jitter_range, jitter_range)
+    def tap(self, x, y, short_press=False, box_dims=None):
+        """Simulate a perfect human tap using Gaussian scatter, finger roll, and Log-Normal durations."""
         
+        # If we know the exact dimensions of the button, we map the Gaussian curve across the entire button surface.
+        if box_dims:
+            w, h = box_dims
+            # sigma = width / 6 means 99.7% of taps fall safely within the button bounds.
+            jitter_x = int(random.gauss(0, w / 6))
+            jitter_y = int(random.gauss(0, h / 6))
+            # Hard limit to ensure it never clicks completely outside the button
+            jitter_x = max(int(-w/2.2), min(int(w/2.2), jitter_x))
+            jitter_y = max(int(-h/2.2), min(int(h/2.2), jitter_y))
+        else:
+            # Fallback to standard tight cluster
+            jitter_x = int(random.gauss(0, 7))
+            jitter_y = int(random.gauss(0, 7))
+            
         final_x = max(0, x + jitter_x)
         final_y = max(0, y + jitter_y)
         
-        self._adb_command("shell", "input", "tap", str(final_x), str(final_y))
+        # Simulate finger "roll" (the end pixel of a tap is rarely the exact start pixel)
+        roll_x = final_x + int(random.gauss(0, 1.5))
+        roll_y = final_y + int(random.gauss(0, 1.5))
         
-        # Human-like delay after tapping (randomized)
-        time.sleep(random.uniform(0.15, 0.35))
+        if short_press:
+            # Force a hyper-fast 20-50ms press for sensitive UI elements
+            duration_ms = random.randint(20, 50)
+        else:
+            # Simulate tap duration (how long the finger depresses the screen). Humans average 40-150ms.
+            duration_ms = int(random.gauss(80, 20))
+            duration_ms = max(30, min(200, duration_ms)) # Bound to realistic limits
+        
+        # Use swipe to broadcast complex touch telemetry (duration + micro-movement) instead of a 0ms single-pixel tap
+        self._adb_command("shell", "input", "swipe", str(final_x), str(final_y), str(roll_x), str(roll_y), str(duration_ms))
+        
+        # Human-like delay after tapping using a Log-Normal distribution (median ~0.35s, with rare long tails)
+        extra_delay = random.lognormvariate(-1.0, 0.8)
+        time.sleep(0.1 + extra_delay)
 
-    def back(self):
-        """Press the Android Back button to close menus/popups."""
+    def back(self, back_btn_loc=None):
+        """Press the Android Back button to close menus/popups using a random method."""
+        choice = random.random()
+        
+        # 1. Physical UI Button
+        if back_btn_loc and choice < 0.33:
+            self.tap(back_btn_loc[0], back_btn_loc[1])
+            return
+            
+        # 2. Gesture Swipe
+        if choice < 0.66:
+            screen_w, screen_h = 1080, 2460
+            y = random.randint(int(screen_h * 0.4), int(screen_h * 0.8))
+            duration = random.randint(150, 300)
+            
+            if random.choice([True, False]):
+                # Left edge to 35-40% width
+                x_start = random.randint(0, 10)
+                x_end = int(screen_w * random.uniform(0.35, 0.45))
+            else:
+                # Right edge to 60-65% width
+                x_start = random.randint(screen_w - 10, screen_w)
+                x_end = int(screen_w * random.uniform(0.55, 0.65))
+                
+            # Add slight vertical finger drift
+            y_end = y + random.randint(-20, 20)
+            self._adb_command("shell", "input", "swipe", str(x_start), str(y), str(x_end), str(y_end), str(duration))
+            time.sleep(random.uniform(0.8, 1.5))
+            return
+            
+        # 3. Hardware Key
         self._adb_command("shell", "input", "keyevent", "4")
-        time.sleep(1)
+        time.sleep(random.uniform(0.8, 1.5))
 
     def swipe(self, x1, y1, x2, y2, duration_ms=500):
         """Swipe from (x1, y1) to (x2, y2)."""

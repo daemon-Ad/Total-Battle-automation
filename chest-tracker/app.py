@@ -419,35 +419,7 @@ def get_analytics():
                 else:
                     needs_attention_players.append(player_data)
             
-            # 3. Get Trends (Hourly for today)
-            query_hourly = """
-                WITH calculated_logs AS (
-                    SELECT 
-                        acquired_at,
-                        CASE 
-                            WHEN chest_type = 'common' THEN 
-                                CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 15 WHEN 25 THEN 30 WHEN 30 THEN 60 ELSE 0 END
-                            WHEN chest_type = 'rare' THEN
-                                CASE chest_level WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 20 WHEN 25 THEN 35 WHEN 30 THEN 65 ELSE 0 END
-                            WHEN chest_type IN ('epic', 'event') THEN
-                                CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 5 WHEN 15 THEN 10 WHEN 20 THEN 25 WHEN 25 THEN 50 WHEN 30 THEN 80 WHEN 35 THEN 140 ELSE 0 END
-                            ELSE 0
-                        END as dynamic_points
-                    FROM chest_logs
-                    WHERE acquired_at >= CURRENT_DATE
-                )
-                SELECT 
-                    TO_CHAR(date_trunc('hour', acquired_at), 'HH24:MI') as time_label,
-                    COUNT(*) as chests,
-                    SUM(dynamic_points) as score
-                FROM calculated_logs
-                GROUP BY date_trunc('hour', acquired_at)
-                ORDER BY date_trunc('hour', acquired_at)
-            """
-            cursor.execute(query_hourly)
-            hourly_trends = cursor.fetchall()
-            
-            # 4. Get Trends (Daily for last 7 days)
+            # 3. Get Trends (Daily for last 30 days)
             query_daily = """
                 WITH calculated_logs AS (
                     SELECT 
@@ -462,7 +434,7 @@ def get_analytics():
                             ELSE 0
                         END as dynamic_points
                     FROM chest_logs
-                    WHERE acquired_at >= (CURRENT_DATE - INTERVAL '7 days')
+                    WHERE acquired_at >= (CURRENT_DATE - INTERVAL '30 days')
                 )
                 SELECT 
                     TO_CHAR(date_trunc('day', acquired_at), 'MM-DD') as time_label,
@@ -475,26 +447,61 @@ def get_analytics():
             cursor.execute(query_daily)
             daily_trends = cursor.fetchall()
             
-            # 5. Get Sources (All time, or current week)
-            query_sources = """
+            # 4. Get Trends (Weekly for last 30 days)
+            query_weekly = """
+                WITH calculated_logs AS (
+                    SELECT 
+                        acquired_at,
+                        CASE 
+                            WHEN chest_type = 'common' THEN 
+                                CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 15 WHEN 25 THEN 30 WHEN 30 THEN 60 ELSE 0 END
+                            WHEN chest_type = 'rare' THEN
+                                CASE chest_level WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 20 WHEN 25 THEN 35 WHEN 30 THEN 65 ELSE 0 END
+                            WHEN chest_type IN ('epic', 'event') THEN
+                                CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 5 WHEN 15 THEN 10 WHEN 20 THEN 25 WHEN 25 THEN 50 WHEN 30 THEN 80 WHEN 35 THEN 140 ELSE 0 END
+                            ELSE 0
+                        END as dynamic_points
+                    FROM chest_logs
+                    WHERE acquired_at >= (CURRENT_DATE - INTERVAL '30 days')
+                )
                 SELECT 
-                    CASE 
-                        WHEN source ILIKE '%crypt%' THEN 'Crypts'
-                        WHEN source ILIKE '%citadel%' THEN 'Citadels'
-                        WHEN source ILIKE '%monster%' THEN 'Monsters'
-                        WHEN source ILIKE '%event%' OR source ILIKE '%triumphal%' THEN 'Events'
-                        WHEN source ILIKE '%clan wealth%' THEN 'Clan'
-                        WHEN source ILIKE '%arena%' THEN 'Arena'
-                        ELSE 'Resources'
-                    END as category,
-                    COUNT(*) as count
-                FROM chest_logs
-                WHERE acquired_at >= date_trunc('week', CURRENT_DATE)
-                GROUP BY category
-                ORDER BY count DESC
+                    'Week of ' || TO_CHAR(date_trunc('week', acquired_at), 'Mon DD') as time_label,
+                    COUNT(*) as chests,
+                    SUM(dynamic_points) as score
+                FROM calculated_logs
+                GROUP BY date_trunc('week', acquired_at)
+                ORDER BY date_trunc('week', acquired_at)
             """
-            cursor.execute(query_sources)
-            sources = cursor.fetchall()
+            cursor.execute(query_weekly)
+            weekly_trends = cursor.fetchall()
+            
+            # 5. Get Sources
+            def get_sources(interval_days):
+                query = f"""
+                    SELECT 
+                        CASE 
+                            WHEN source ILIKE '%crypt%' THEN 'Crypts'
+                            WHEN source ILIKE '%citadel%' THEN 'Citadels'
+                            WHEN source ILIKE '%monster%' THEN 'Monsters'
+                            WHEN source ILIKE '%event%' OR source ILIKE '%triumphal%' THEN 'Events'
+                            WHEN source ILIKE '%clan wealth%' THEN 'Clan'
+                            WHEN source ILIKE '%arena%' THEN 'Arena'
+                            ELSE 'Resources'
+                        END as category,
+                        COUNT(*) as count
+                    FROM chest_logs
+                    WHERE acquired_at >= (CURRENT_DATE - INTERVAL '{interval_days} days')
+                    GROUP BY category
+                    ORDER BY count DESC
+                """
+                cursor.execute(query)
+                return cursor.fetchall()
+
+            sources = {
+                "daily": get_sources(1),
+                "weekly": get_sources(7),
+                "monthly": get_sources(30)
+            }
 
             return {
                 "status": "success", 
@@ -512,8 +519,8 @@ def get_analytics():
                         "needs_attention_players": needs_attention_players
                     },
                     "trends": {
-                        "hourly": hourly_trends,
-                        "daily": daily_trends
+                        "daily": daily_trends,
+                        "weekly": weekly_trends
                     },
                     "sources": sources
                 }
