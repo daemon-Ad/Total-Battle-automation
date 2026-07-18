@@ -13,7 +13,7 @@ from core.vision import VisionEngine
 from crypting.time_math import parse_march_time_seconds, parse_tar_amount, compute_reduced_time
 
 class Crypter:
-    def __init__(self, device_name="default"):
+    def __init__(self, device_name="moto-g51"):
         self.adb = ADBController()
         # Initialize VisionEngine with crypting images directory
         self.images_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images")
@@ -22,7 +22,7 @@ class Crypter:
         
         self.config_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config")
         os.makedirs(self.config_dir, exist_ok=True)
-        self.config_path = os.path.join(self.config_dir, f"{self.device_name}-crypting.json")
+        self.config_path = os.path.join(self.config_dir, f"{self.device_name}-config.json")
         self.config = self._load_config()
         self.tar_available = None
         self.tar_carrying = None
@@ -80,6 +80,38 @@ class Crypter:
         print(f"Could not find '{key}' on screen.")
         return None
 
+    def _get_nth_template_match(self, template_name, screen_img, n=1, threshold=0.7):
+        template_path = os.path.join(self.images_dir, template_name)
+        template_img = cv2.imread(template_path, cv2.IMREAD_COLOR)
+        if template_img is None: return None
+        
+        h, w = template_img.shape[:2]
+        res = cv2.matchTemplate(screen_img, template_img, cv2.TM_CCOEFF_NORMED)
+        loc_match = np.where(res >= threshold)
+        points = list(zip(*loc_match[::-1]))
+        
+        if not points: return None
+        
+        # Cluster points (group by y-coordinate proximity)
+        clusters = []
+        for pt in points:
+            found = False
+            for cluster in clusters:
+                if abs(cluster[0][1] - pt[1]) < h: # Within full height of each other
+                    cluster.append(pt)
+                    found = True
+                    break
+            if not found:
+                clusters.append([pt])
+                
+        # Sort clusters by y coordinate (top to bottom)
+        clusters.sort(key=lambda c: c[0][1])
+        
+        if n <= len(clusters):
+            pt = clusters[n-1][0] # take first point of cluster
+            return (int(pt[0] + w // 2), int(pt[1] + h // 2))
+        return None
+
     def _get_center_screen(self, screen_img):
         if 'center_screen' in self.config:
             return tuple(self.config['center_screen'])
@@ -101,9 +133,71 @@ class Crypter:
 
     def _check_carter_and_tar(self):
         """Step 10: Check Carter and Tar limits"""
-            if not tick_loc:
-                print("ERROR: Carter is not ticked. Stopping.")
+        
+        # 10.1 Verify Carter is ready and selected
+        print("Verifying Carter's availability...")
+        carter_is_ready = False
+        wait_start = time.time()
+        
+        img_checked = cv2.imread(os.path.join(self.images_dir, 'green-checkmark-tight.png'), cv2.IMREAD_COLOR)
+        img_empty = cv2.imread(os.path.join(self.images_dir, 'empty-checkbox-tight.png'), cv2.IMREAD_COLOR)
+        
+        while time.time() - wait_start < 60: # Wait up to 60s for Carter
+            screen_img = self.adb.capture_screen()
+            if screen_img is None:
+                time.sleep(1)
+                continue
+                
+            carter_loc = self._get_or_find_location('carter_slot', 'Carter.png', screen_img, threshold=0.7)
+            if not carter_loc:
+                print("ERROR: Could not find Carter.")
                 return False
+                
+            c_x, c_y = carter_loc
+            H, W = screen_img.shape[:2]
+            h_empty, w_empty = img_empty.shape[:2]
+            
+            # Box directly under Carter. Width is tightly bound to his column to avoid seeing other captains.
+            # Height goes down 400px to ensure the checkbox is fully included.
+            box_width_half = (w_empty // 2) + 20
+            carter_box = screen_img[c_y:min(H, c_y+400), max(0, c_x - box_width_half):min(W, c_x + box_width_half)]
+            
+            # Is Carter ticked?
+            if self.vision.find_template_image(carter_box, img_checked, threshold=0.7):
+                print("Carter is ready and ticked!")
+                carter_is_ready = True
+                break
+                
+            # Is Carter unticked?
+            if self.vision.find_template_image(carter_box, img_empty, threshold=0.8):
+                print("Carter is returned but unticked. Unticking others...")
+                # Find any green checkmark on the whole screen and click it
+                res = cv2.matchTemplate(screen_img, img_checked, cv2.TM_CCOEFF_NORMED)
+                _, max_val, _, max_loc = cv2.minMaxLoc(res)
+                if max_val >= 0.75:
+                    h, w = img_checked.shape[:2]
+                    self.adb.tap(max_loc[0] + w//2, max_loc[1] + h//2)
+                    time.sleep(0.7)
+                    screen_img = self.adb.capture_screen() # update screen
+                    
+                # Now tap Carter's empty box
+                print("Ticking Carter...")
+                res_box_empty = cv2.matchTemplate(carter_box, img_empty, cv2.TM_CCOEFF_NORMED)
+                _, e_max_val, _, e_max_loc = cv2.minMaxLoc(res_box_empty)
+                if e_max_val >= 0.75:
+                    h, w = img_empty.shape[:2]
+                    tap_x = max(0, c_x - box_width_half) + e_max_loc[0] + w//2
+                    tap_y = c_y + e_max_loc[1] + h//2
+                    self.adb.tap(tap_x, tap_y)
+                    time.sleep(0.7)
+                continue
+                
+            print("Carter is busy (On a march)... waiting.")
+            time.sleep(2)
+            
+        if not carter_is_ready:
+            print("ERROR: Carter did not become ready within the timeout.")
+            return False
 
         # 10.2 Check Tar
         if self.tar_available is None:
@@ -192,8 +286,8 @@ class Crypter:
             print("Last iteration reached. Terminating without wait time.")
             return True
             
-        print("Waiting 10s before closing taskbar...")
-        time.sleep(10)
+        print("Waiting 20s before closing taskbar...")
+        time.sleep(20)
         
         # Tap back button to return to home screen map
         print("Pressing back button to return to homescreen.")
@@ -217,12 +311,26 @@ class Crypter:
                 if not self._get_or_find_location('crypts_tab', 'crypts-tab.png', tap=True):
                     break
             
-            # Step 4: Go button (First crypt)
-            print("Step 4: Finding Go Button...")
-            if not self._get_or_find_location('go_button', 'go-button.png', tap=True):
+            # Step 4: Go button (Second crypt)
+            print("Step 4: Finding 2nd Go Button...")
+            screen_img = self.adb.capture_screen()
+            if screen_img is None: 
+                print("Screen capture failed, aborting.")
                 break
-            # Give game a little more time to center map from watchtower menu
-            time.sleep(1)
+                
+            go_loc = self._get_nth_template_match('go-button.png', screen_img, n=2, threshold=0.7)
+            if go_loc:
+                self.adb.tap(go_loc[0], go_loc[1])
+                time.sleep(1.5)
+            else:
+                print("Could not find 2nd Go button. Attempting 1st Go button fallback.")
+                go_loc = self._get_nth_template_match('go-button.png', screen_img, n=1, threshold=0.7)
+                if go_loc:
+                    self.adb.tap(go_loc[0], go_loc[1])
+                    time.sleep(1.5)
+                else:
+                    print("ERROR: No Go buttons found.")
+                    break
             
             # Step 5 & 6: Center tap (skipping redline check)
             print("Step 6: Tapping Center of Screen...")
@@ -260,7 +368,7 @@ class Crypter:
         print("Crypting Automation Finished.")
 
 if __name__ == "__main__":
-    crypter = Crypter("default")
+    crypter = Crypter("moto-g51")
     # Take number of iterations from user if provided via CLI
     iters = 10
     if len(sys.argv) > 1:
