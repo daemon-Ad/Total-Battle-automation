@@ -90,47 +90,17 @@ class Crypter:
         return center
 
     def _extract_text_clean(self, crop_img):
-        """Preprocesses image with OpenCV for better OCR accuracy."""
-        # Scale up
-        scaled = cv2.resize(crop_img, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
-        # Grayscale
-        gray = cv2.cvtColor(scaled, cv2.COLOR_BGR2GRAY)
-        # Threshold (assuming white text on dark background)
-        _, thresh = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY)
-        # Invert for Tesseract (black text on white background is preferred)
-        thresh = cv2.bitwise_not(thresh)
+        """Uses EasyOCR directly as it performs best on the raw game fonts."""
+        if not hasattr(self, 'reader'):
+            import easyocr
+            self.reader = easyocr.Reader(['en'], gpu=False)
         
-        import pytesseract
-        text = pytesseract.image_to_string(thresh, config='--psm 7').strip()
-        
-        if not text:
-            # Fallback to easyocr
-            if not hasattr(self, 'reader'):
-                import easyocr
-                self.reader = easyocr.Reader(['en'], gpu=False)
-            rgb = cv2.cvtColor(thresh, cv2.COLOR_GRAY2RGB)
-            res = self.reader.readtext(rgb, detail=0)
-            text = " ".join(res)
-            
-        return text.strip()
+        rgb = cv2.cvtColor(crop_img, cv2.COLOR_BGR2RGB)
+        res = self.reader.readtext(rgb, detail=0)
+        return " ".join(res).strip()
 
     def _check_carter_and_tar(self):
         """Step 10: Check Carter and Tar limits"""
-        screen_img = self.adb.capture_screen()
-        if screen_img is None:
-            print("ERROR: Screen capture failed.")
-            return False
-        
-        # 10.1 Check Carter is ticked
-        carter_loc = self._get_or_find_location('carter_slot', 'Carter.png', screen_img, threshold=0.7)
-        if not carter_loc:
-            print("ERROR: Carter not found in slot 1. Without Carter, crypting cannot happen. Stopping.")
-            return False
-            
-        tick_loc = self._get_or_find_location('carter_tick', 'carter-ticked.png', screen_img, threshold=0.7)
-        if not tick_loc:
-            # Maybe try separate tick just in case
-            tick_loc = self._get_or_find_location('tick', 'tick.png', screen_img, threshold=0.7)
             if not tick_loc:
                 print("ERROR: Carter is not ticked. Stopping.")
                 return False
@@ -179,7 +149,7 @@ class Crypter:
         
         self.initial_seconds = parse_march_time_seconds(time_text)
         if not self.initial_seconds:
-            print("WARNING: Could not parse march time from explore screen. Defaulting to 60s.")
+            print("WARNING: Could not parse march time from explore screen. Defaulting to 120s.")
             self.initial_seconds = 120
         else:
             print(f"Parsed initial march time: {self.initial_seconds}s")
@@ -222,9 +192,13 @@ class Crypter:
             print("Last iteration reached. Terminating without wait time.")
             return True
             
-        wait_time = max(5, final_seconds * 2) + 2 # Round trip wait + 2s robust buffer
-        print(f"Waiting {wait_time}s for crypting to finish...")
-        time.sleep(wait_time)
+        print("Waiting 10s before closing taskbar...")
+        time.sleep(10)
+        
+        # Tap back button to return to home screen map
+        print("Pressing back button to return to homescreen.")
+        self._get_or_find_location('back_button', 'back-button.png', tap=True, delay=2.0)
+            
         return True
 
     def run_loop(self, iterations=10):
