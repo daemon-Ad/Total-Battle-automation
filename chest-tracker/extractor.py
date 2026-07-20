@@ -353,14 +353,32 @@ class ChestExtractor:
                     
                 # 2. Determine Level
                 level = 0
-                match = re.search(r'Level (\d+)', source, re.IGNORECASE)
-                if match:
-                    level = int(match.group(1))
+                
+                # Dictionary for exact name matches (use lowercase). 
+                # You can add all your Ancient chests here!
+                KNOWN_CHESTS = {
+                    "dark omens event": (30, "event"),
+                    # Example format:
+                    # "ancient epic chest": (30, "epic"),
+                    # "some other event": (20, "event"),
+                }
+                
+                source_clean = source.strip().lower()
+                title_clean = title.strip().lower()
+                
+                if source_clean in KNOWN_CHESTS:
+                    level, chest_type = KNOWN_CHESTS[source_clean]
+                elif title_clean in KNOWN_CHESTS:
+                    level, chest_type = KNOWN_CHESTS[title_clean]
                 else:
-                    level = self.vision.get_chest_level_from_color(color_img_crop)
-                    if level == 0 or (level == 5 and chest_type == "event"):
-                        level = 15
-                        chest_type = "event"
+                    match = re.search(r'Level (\d+)', source, re.IGNORECASE)
+                    if match:
+                        level = int(match.group(1))
+                    else:
+                        level = self.vision.get_chest_level_from_color(color_img_crop)
+                        if level == 0 or (level == 5 and chest_type == "event"):
+                            level = 15
+                            chest_type = "event"
                         
                 if "runic" in source_lower or "runic" in title_lower:
                     if level >= 40: level = 25
