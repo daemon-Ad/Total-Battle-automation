@@ -118,8 +118,10 @@ def get_leaderboard(
             
             params = []
             if search:
-                query += " WHERE p.username ILIKE %s"
+                query += " WHERE p.username ILIKE %s AND p.username NOT IN ('Unknown Player', 'Clan')"
                 params.append(f"%{search}%")
+            else:
+                query += " WHERE p.username NOT IN ('Unknown Player', 'Clan')"
                 
             query += " GROUP BY p.id, p.username"
             
@@ -148,6 +150,7 @@ def get_players():
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute("""
                 SELECT id, username, rank FROM players 
+                WHERE username NOT IN ('Unknown Player', 'Clan')
                 ORDER BY 
                     CASE rank
                         WHEN 'Leader' THEN 1
@@ -399,13 +402,16 @@ def get_analytics():
             
             total_score = sum(p['total_score'] for p in player_stats)
             total_chests = sum(p['chests'] for p in player_stats)
-            active_players = len(player_stats)
+            
+            # Filter out Unknown Player and Clan from active lists
+            known_players = [p for p in player_stats if p['username'] not in ('Unknown Player', 'Clan')]
+            active_players = len(known_players)
             total_goal = weekly_goal * active_players if active_players > 0 else weekly_goal
             
             on_track_players = []
             needs_attention_players = []
             
-            for p in player_stats:
+            for p in known_players:
                 score = p['total_score']
                 diff = score - weekly_goal
                 player_data = {
@@ -414,7 +420,8 @@ def get_analytics():
                     "goal": weekly_goal,
                     "diff": diff
                 }
-                if score >= weekly_goal:
+                # A player is "On Track" (not red) if they are within 500 points of the target
+                if score >= weekly_goal - 500:
                     on_track_players.append(player_data)
                 else:
                     needs_attention_players.append(player_data)

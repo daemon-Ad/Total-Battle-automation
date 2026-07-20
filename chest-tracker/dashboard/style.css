@@ -439,6 +439,9 @@ tr:nth-child(3) .rank-badge { background: rgba(180, 83, 9, 0.1); border-color: #
 .tint-warning {
     background-color: rgba(234, 179, 8, 0.1) !important;
 }
+.tint-danger {
+    background-color: rgba(239, 68, 68, 0.1) !important;
+}
 .tint-success {
     background-color: rgba(16, 185, 129, 0.1) !important;
 }

@@ -52,6 +52,9 @@ class ChestExtractor:
             
         self.device_config = {}
         self._load_or_calibrate()
+        
+        self.clan_wealth_capacity = self.device_config.get('clan_wealth_capacity', 4)
+        self.clan_wealth_counter = 0
 
     def _load_or_calibrate(self):
         print("\n--- Device Configuration ---")
@@ -398,66 +401,80 @@ class ChestExtractor:
                 if not title and not player and not source:
                     continue
                     
-                # 1. Determine Type
+                # 1. Base Type Parsing
                 chest_type = "common"
                 source_lower = source.lower()
                 title_lower = title.lower()
+                full_text_lower = f"{source_lower} {title_lower}"
                 
                 is_event = False
                 if "crypt" not in source_lower and "citadel" not in source_lower and not is_expired:
                      is_event = True
                      chest_type = "event"
                      
-                if "clan wealth" in source_lower or "clan wealth" in title_lower:
-                    player = "Clan"
-                    if "rare" in title_lower: chest_type = "rare"
-                    elif "epic" in title_lower or "legendary" in title_lower: chest_type = "epic"
-                    else: chest_type = "common"
-                elif not is_event:
-                    if "rare" in source_lower or "rare" in title_lower: chest_type = "rare"
-                    elif "epic" in source_lower or "epic" in title_lower: chest_type = "epic"
-                    
-                # 2. Determine Level
+                # Try to find explicit level via Regex
                 level = 0
                 match = re.search(r'Level (\d+)', source, re.IGNORECASE)
                 if match:
                     level = int(match.group(1))
-                else:
-                    level = self.vision.get_chest_level_from_color(color_img_crop)
-                    if level == 0 or (level == 5 and chest_type == "event"):
-                        level = 15
+                    
+                # 2. Apply Custom Rules & Logic
+                if is_event:
+                    # Skip color-matching entirely for Event chests and use source text rules
+                    if "epic ancient squad" in full_text_lower:
+                        player = "Clan"
+                        level = 25
                         chest_type = "event"
+                    elif "dark omens" in full_text_lower:
+                        level = 30
+                        chest_type = "event"
+                    elif "ragnarok" in full_text_lower:
+                        level = 25
+                        chest_type = "event"
+                    elif "olympus" in full_text_lower:
+                        level = 25
+                        chest_type = "event"
+                    elif "arena" in full_text_lower:
+                        level = 0
+                        chest_type = "common"
+                    elif "clan wealth" in full_text_lower:
+                        player = "Clan"
+                        # Dynamic level progression based on clan capacity
+                        idx = self.clan_wealth_counter % self.clan_wealth_capacity
+                        level = (idx + 1) * 5
+                        chest_type = "epic" if level == 30 else "common"
+                        self.clan_wealth_counter += 1
+                    else:
+                        # Catch-all for any other event chest
+                        if level == 0:
+                            level = 20
+                        chest_type = "event"
+                else:
+                    # Standard Non-Event Chests (Crypts, Citadels, etc)
+                    if "rare" in full_text_lower: 
+                        chest_type = "rare"
+                    elif "epic" in full_text_lower: 
+                        chest_type = "epic"
                         
-                if "runic" in source_lower or "runic" in title_lower:
-                    if level >= 40: level = 25
-                    elif level >= 35: level = 20
-                    elif level >= 30: level = 15
-                    elif level >= 25: level = 10
-                    elif level >= 20: level = 5
-                    chest_type = "common"
-                    
-                if "summoning" in source_lower and "dark" in source_lower and "omens" in source_lower:
-                    chest_type = "epic"
-                    level = 30
-                elif "dark omens" in source_lower or "dark omens" in title_lower:
-                    chest_type = "event"
-                    if level < 20:
+                    # Fallback to color detection if no level was found in text
+                    if level == 0:
+                        level = self.vision.get_chest_level_from_color(color_img_crop)
+                        
+                    # Special modifier for Runic crypts
+                    if "runic" in full_text_lower:
+                        if level >= 40: level = 25
+                        elif level >= 35: level = 20
+                        elif level >= 30: level = 15
+                        elif level >= 25: level = 10
+                        elif level >= 20: level = 5
+                        chest_type = "common"
+                        
+                    if "tartaros" in full_text_lower:
+                        chest_type = "epic"
+                        
+                    if is_expired and level == 0:
                         level = 20
-                        
-                if "olympus" in source_lower or "olympus" in title_lower:
-                    chest_type = "event"
-                    level = 25
-                    
-                if "ragnarok" in source_lower or "ragnarok" in title_lower:
-                    chest_type = "event"
-                    level = 25
-                    
-                if "tartaros" in source_lower or "tartaros" in title_lower:
-                    chest_type = "epic"
-                        
-                if is_expired and level == 0:
-                    level = 20
-                    chest_type = "common"
+                        chest_type = "common"
                     
                 if not title: title = "Unknown Chest"
                 if not player: player = "Unknown Player"

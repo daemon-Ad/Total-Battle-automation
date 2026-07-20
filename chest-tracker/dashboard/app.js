@@ -243,9 +243,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const rankHtml = `<div class="rank-badge">${index + 1}</div>`;
             
             // Apply Tints based on points vs goal
-            if (row.total_score < weeklyGoal) {
-                tr.classList.add('tint-warning');
-            } else if (row.total_score >= 1000) {
+            if (row.total_score < weeklyGoal - 500) {
+                tr.classList.add('tint-danger');
+            } else if (row.total_score >= weeklyGoal) {
                 tr.classList.add('tint-success');
             }
             
@@ -397,6 +397,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return matchesRank && matchesSearch;
         });
 
+        const totalBadge = document.getElementById('management-total-players');
+        if (totalBadge) totalBadge.innerText = `${allManagementPlayers.length} Players`;
+
         filteredPlayers.forEach(p => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -517,8 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('target-text').textContent = `${analyticsData.targets.total_score} / ${analyticsData.targets.total_goal} points`;
         document.getElementById('target-bar').style.width = Math.min(targetPercentStr, 100) + '%';
 
-        // 2. Summary Donut
-        document.getElementById('on-track-count').textContent = analyticsData.summary.on_track_count;
+        // 2. Summary
         document.getElementById('needs-attention-count').textContent = analyticsData.summary.needs_attention_count;
         document.getElementById('total-members-text').textContent = analyticsData.summary.total_members;
 
@@ -560,7 +562,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }).join('');
         };
-        renderList('on-track-list', analyticsData.summary.on_track_players, false);
+        
+        // Render only the Needs Attention list
         renderList('needs-attention-list', analyticsData.summary.needs_attention_players, true);
 
         // 4. Trends

@@ -135,14 +135,7 @@
                 </div>
 
                 <!-- SUMMARY ROW -->
-                <div class="analytics-row">
-                    <div class="analytics-card member-list-card">
-                        <h3>ON TRACK (<span id="on-track-count">0</span>)</h3>
-                        <div class="member-list" id="on-track-list">
-                            <!-- Injected -->
-                        </div>
-                    </div>
-
+                <div class="analytics-row" style="grid-template-columns: 1fr 1fr;">
                     <div class="analytics-card donut-card">
                         <h3>SUMMARY</h3>
                         <div class="chart-container-donut">
@@ -277,7 +270,10 @@
             <!-- VIEW 3: Player Management -->
             <section id="management-view" class="view">
                 <header>
-                    <h1>Player Management</h1>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <h1>Player Management</h1>
+                        <div class="rank-badge" style="width: auto; padding: 0 1rem; border-radius: 4px;" id="management-total-players">0 Players</div>
+                    </div>
                     <p>Add, edit, or remove clan members</p>
                 </header>
 
@@ -287,8 +283,8 @@
                         <select id="new-player-rank" style="margin-left: 1rem; margin-right: 1rem;">
                             <option value="Leader">Leader</option>
                             <option value="Superior">Superior</option>
-                            <option value="Officer" selected>Officer</option>
-                            <option value="Veteran">Veteran</option>
+                            <option value="Officer">Officer</option>
+                            <option value="Veteran" selected>Veteran</option>
                             <option value="Soldier">Soldier</option>
                             <option value="Unknown">Unknown</option>
                         </select>
