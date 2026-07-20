@@ -39,19 +39,43 @@ class VisionEngine:
 
     def _load_chest_colors(self):
         """Pre-load chest color references."""
+        self.chest_colors = []  # List of (level, img)
+        self.ancient_chest_colors = []
+        
         colors_dir = os.path.join(self.images_dir, "chest-colors")
         if os.path.exists(colors_dir):
-            for path in glob.glob(os.path.join(colors_dir, "*.png")):
-                basename = os.path.basename(path) # e.g., level-15.png
-                level_str = basename.replace("level-", "").replace(".png", "")
-                try:
-                    level = int(level_str)
-                    img = cv2.imread(path, cv2.IMREAD_COLOR)
-                    self.chest_colors[level] = img
-                except ValueError:
-                    pass
+            import re
+            for path in glob.glob(os.path.join(colors_dir, "*-t.png")):
+                basename = os.path.basename(path) # e.g., level-15-t.png
+                match = re.search(r'(\d+)', basename)
+                if match:
+                    try:
+                        level = int(match.group(1))
+                        # Load with alpha channel if present
+                        img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+                        if img is not None:
+                            self.chest_colors.append((level, img))
+                    except ValueError:
+                        pass
         else:
             print(f"Warning: Chest colors directory {colors_dir} not found.")
+            
+        ancient_dir = os.path.join(self.images_dir, "Identical-ancient ")
+        if os.path.exists(ancient_dir):
+            import re
+            for path in glob.glob(os.path.join(ancient_dir, "*.png")):
+                basename = os.path.basename(path)
+                match = re.search(r'(\d+)', basename)
+                if match:
+                    try:
+                        level = int(match.group(1))
+                        img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+                        if img is not None:
+                            self.ancient_chest_colors.append((level, img))
+                    except ValueError:
+                        pass
+        else:
+            print(f"Warning: Ancient colors directory {ancient_dir} not found.")
 
     def find_template(self, screen_input, template_name, threshold=0.8):
         """
@@ -119,12 +143,14 @@ class VisionEngine:
         result = self.reader.readtext(rgb_image, detail=0)
         return " ".join(result).strip()
 
-    def get_chest_level_from_color(self, chest_crop):
+    def get_chest_level_from_color(self, chest_crop, ancient=False):
         """
         Compare the chest crop against known level colors.
         Uses structural similarity or simple MSE on resized images.
         """
-        if not self.chest_colors:
+        templates = self.ancient_chest_colors if ancient else self.chest_colors
+        
+        if not templates:
             return 0
             
         # Resize crop to a standard size for comparison (e.g., 50x50)
@@ -134,11 +160,33 @@ class VisionEngine:
         best_level = 0
         min_diff = float('inf')
         
-        for level, ref_img in self.chest_colors.items():
-            resized_ref = cv2.resize(ref_img, target_size)
-            # Calculate Mean Squared Error (MSE)
-            err = np.sum((resized_crop.astype("float") - resized_ref.astype("float")) ** 2)
-            err /= float(resized_crop.shape[0] * resized_crop.shape[1])
+        for level, ref_img in templates:
+            if len(ref_img.shape) == 3 and ref_img.shape[2] == 4:
+                # Image has an alpha channel (transparency)
+                alpha = ref_img[:, :, 3] / 255.0
+                mask = cv2.resize(alpha, target_size)
+                bgr_ref = ref_img[:, :, :3]
+                resized_ref = cv2.resize(bgr_ref, target_size)
+            else:
+                # Standard BGR image
+                resized_ref = cv2.resize(ref_img, target_size)
+                mask = np.ones(target_size)
+                # Ignore the middle polygon (chest body) to focus on colored corners
+                mask[10:40, 10:40] = 0
+                
+            # Expand mask to 3 dimensions for color broadcasting
+            mask_3d = np.expand_dims(mask, axis=2)
+            
+            # Calculate Mean Squared Error (MSE) only on non-transparent pixels
+            diff = (resized_crop.astype("float") - resized_ref.astype("float")) * mask_3d
+            err = np.sum(diff ** 2)
+            
+            # Normalize error by the number of valid pixels
+            valid_pixels = np.sum(mask) * 3
+            if valid_pixels > 0:
+                err /= valid_pixels
+            else:
+                err = float('inf')
             
             if err < min_diff:
                 min_diff = err

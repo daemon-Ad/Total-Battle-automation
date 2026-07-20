@@ -342,7 +342,9 @@ class ChestExtractor:
                      is_event = True
                      chest_type = "event"
                      
-                if "clan wealth" in source_lower or "clan wealth" in title_lower:
+                if "epic ancient squad" in source_lower or "epic ancient squad" in title_lower:
+                    player = "Clan"
+                elif "clan wealth" in source_lower or "clan wealth" in title_lower:
                     player = "Clan"
                     if "rare" in title_lower: chest_type = "rare"
                     elif "epic" in title_lower or "legendary" in title_lower: chest_type = "epic"
@@ -358,6 +360,7 @@ class ChestExtractor:
                 # You can add all your Ancient chests here!
                 KNOWN_CHESTS = {
                     "dark omens event": (30, "event"),
+                    "epic ancient squad": (25, "epic"),
                     # Example format:
                     # "ancient epic chest": (30, "epic"),
                     # "some other event": (20, "event"),
@@ -375,7 +378,8 @@ class ChestExtractor:
                     if match:
                         level = int(match.group(1))
                     else:
-                        level = self.vision.get_chest_level_from_color(color_img_crop)
+                        is_ancient_event = ("rise of the ancients event" in source_clean or "rise of the ancients event" in title_clean)
+                        level = self.vision.get_chest_level_from_color(color_img_crop, ancient=is_ancient_event)
                         if level == 0 or (level == 5 and chest_type == "event"):
                             level = 15
                             chest_type = "event"
