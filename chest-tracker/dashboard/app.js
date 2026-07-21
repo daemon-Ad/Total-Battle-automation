@@ -27,6 +27,37 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Initialization ---
     init();
 
+    
+    const af = document.getElementById("analytics-week-select");
+    if(af) af.addEventListener("change", loadAnalytics);
+    const lt = document.getElementById("leaderboard-timeframe");
+    const lw = document.getElementById("leaderboard-week-select");
+    if(lt) lt.addEventListener("change", () => {
+        const val = lt.value;
+        const lw = document.getElementById("leaderboard-week-select");
+        if(val === 'daily') {
+            lw.options[0].text = "Current Day";
+            lw.options[1].text = "Previous Day";
+            lw.options[2].text = "2 Days Ago";
+        } else if(val === 'monthly') {
+            lw.options[0].text = "Current Month";
+            lw.options[1].text = "Previous Month";
+            lw.options[2].text = "2 Months Ago";
+        } else if(val === 'overall') {
+            lw.options[0].text = "All Time";
+            lw.options[1].text = "-";
+            lw.options[2].text = "-";
+        } else {
+            lw.options[0].text = "Current Week";
+            lw.options[1].text = "Previous Week";
+            lw.options[2].text = "2 Weeks Ago";
+        }
+        fetchLeaderboard();
+    });
+    if(lw) lw.addEventListener("change", () => fetchLeaderboard());
+    const hp = document.getElementById("home-performers-timeframe");
+    if(hp) hp.addEventListener("change", loadPerformers);
+
     async function init() {
         await fetchSettings();
         switchView('home-view');
@@ -74,6 +105,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    
+async function loadPerformers() {
+    const timeframe = document.getElementById("home-performers-timeframe")?.value || "weekly";
+    try {
+        const response = await fetch(`/api/leaderboard?sort_by=total_score&order=desc&timeframe=${timeframe}&offset=0`);
+        const data = await response.json();
+        if (data.status === 'success') {
+            const players = data.data;
+            const top10 = players.slice(0, 10);
+            const bottom10 = players.slice(-10).reverse();
+            
+            let topHtml = "";
+            top10.forEach((p, i) => {
+                topHtml += `<tr><td>${i+1}</td><td>${p.username}</td><td>${p.total_score}</td></tr>`;
+            });
+            document.getElementById("top-performers-body").innerHTML = topHtml;
+            
+            let botHtml = "";
+            bottom10.forEach((p, i) => {
+                botHtml += `<tr><td>${players.length - i}</td><td>${p.username}</td><td>${p.total_score}</td></tr>`;
+            });
+            document.getElementById("bottom-performers-body").innerHTML = botHtml;
+        }
+    } catch(e) { console.error(e); }
+}
+
     function switchView(viewId) {
         views.forEach(view => view.classList.remove('active'));
         document.getElementById(viewId).classList.add('active');
@@ -85,6 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Global Back Button visibility
         const backBtn = document.getElementById('global-back-btn');
         if (viewId === 'home-view') {
+            loadPerformers();
             backBtn.style.display = 'none';
         } else {
             backBtn.style.display = 'flex';
@@ -207,30 +265,80 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Leaderboard View Logic ---
-    async function fetchLeaderboard() {
+    
+    async function fetchLeaderboard(searchVal = "") {
+        const timeframe = document.getElementById("leaderboard-timeframe")?.value || "weekly";
+        const offset = document.getElementById("leaderboard-week-select")?.value || "0";
         const loadingEl = document.getElementById('leaderboard-loading');
         const tbody = document.getElementById('leaderboard-body');
         loadingEl.classList.remove('hidden');
-        tbody.innerHTML = '';
         
-        const searchQuery = searchInput.value;
-        const url = `/api/leaderboard?sort_by=${currentSortBy}&order=${currentOrder}&search=${encodeURIComponent(searchQuery)}`;
+        const searchParam = searchVal ? `&search=${encodeURIComponent(searchVal)}` : '';
         
         try {
-            const response = await fetch(url);
+            const response = await fetch(`/api/leaderboard?sort_by=${currentSortBy}&order=${currentOrder}&timeframe=${timeframe}&offset=${offset}${searchParam}`);
             const result = await response.json();
             
             if (result.status === 'success') {
-                renderLeaderboard(result.data, tbody);
-            } else {
-                tbody.innerHTML = `<tr><td colspan="7">Error: ${result.message}</td></tr>`;
+                tbody.innerHTML = '';
+                if (result.data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="9">No data found.</td></tr>`;
+                    return;
+                }
+                
+                result.data.forEach((p, index) => {
+                    // Number Formatting K
+                    let formattedScore = p.total_score >= 1000 ? (p.total_score/1000).toFixed(1) + 'K' : p.total_score;
+                    if(String(formattedScore).endsWith('.0K')) formattedScore = formattedScore.replace('.0K', 'K');
+                    
+                    // Chests Logic
+                    let totalChests = (p.common_chests||0) + (p.rare_chests||0) + (p.epic_chests||0) + (p.event_chests||0);
+                    
+                    // Status styling
+                    let isWarn = false;
+                    let isPass = false;
+                    
+                    if (timeframe === 'weekly') {
+                        if (p.total_score < weeklyGoal - 500) {
+                            isWarn = true;
+                        } else if (p.total_score >= weeklyGoal) {
+                            isPass = true;
+                        }
+                    }
+                    
+                    let rowClass = '';
+                    let statusIcon = '';
+                    if(isPass) {
+                        rowClass = 'ct-target-pass';
+                        statusIcon = "<i class='bx bx-check-circle' style='color: #065f46; font-size: 1.2rem;'></i>";
+                    } else if (isWarn) {
+                        rowClass = 'ct-target-warn';
+                        statusIcon = "<i class='bx bx-error' style='color: #92400e; font-size: 1.2rem;'></i>";
+                    }
+                    
+                    const tr = document.createElement('tr');
+                    tr.className = rowClass;
+                    tr.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td><strong>${p.username}</strong></td>
+                        <td>${formattedScore}</td>
+                        <td>${statusIcon}</td>
+                        <td>${totalChests}</td>
+                        <td>${p.common_chests || 0}</td>
+                        <td>${p.rare_chests || 0}</td>
+                        <td>${p.epic_chests || 0}</td>
+                        <td>${p.event_chests || 0}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
             }
         } catch (error) {
-            tbody.innerHTML = `<tr><td colspan="7">Network Error</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9">Network Error</td></tr>`;
         } finally {
             loadingEl.classList.add('hidden');
         }
     }
+
 
     function renderLeaderboard(data, tbody) {
         if (data.length === 0) {
@@ -348,8 +456,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let allManagementPlayers = [];
+    let showPastMembers = false;
 
     // --- Player Management View Logic ---
+    
+    const pastBtn = document.getElementById("open-past-modal-btn");
+    const closePast = document.getElementById("close-past-modal");
+    if(pastBtn) pastBtn.addEventListener("click", () => {
+        document.getElementById("past-members-modal").classList.remove("hidden");
+        fetchPlayers(); // This updates allManagementPlayers
+    });
+    if(closePast) closePast.addEventListener("click", () => {
+        document.getElementById("past-members-modal").classList.add("hidden");
+    });
+
     async function fetchPlayers() {
         const loadingEl = document.getElementById('management-loading');
         
@@ -384,9 +504,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return re.test(str);
     }
 
+    
     function renderManagement() {
         const tbody = document.getElementById('management-body');
+        const pastBody = document.getElementById('past-members-body');
         tbody.innerHTML = '';
+        if(pastBody) pastBody.innerHTML = '';
         
         const filterRank = document.getElementById('management-rank-filter').value;
         const searchQuery = document.getElementById('management-search').value.trim().toLowerCase();
@@ -397,22 +520,34 @@ document.addEventListener('DOMContentLoaded', () => {
             return matchesRank && matchesSearch;
         });
 
-        const totalBadge = document.getElementById('management-total-players');
-        if (totalBadge) totalBadge.innerText = `${allManagementPlayers.length} Players`;
-
+        let count = 0;
         filteredPlayers.forEach(p => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>#${p.id}</td>
-                <td>${p.username}</td>
-                <td><span class="rank-badge-text">${p.rank || 'Officer'}</span></td>
-                <td>
-                    <button class="btn-edit" data-id="${p.id}" data-name="${p.username}" data-rank="${p.rank}"><i class='bx bx-edit'></i> Edit</button>
-                    <button class="btn-danger" data-id="${p.id}"><i class='bx bx-trash'></i> Delete</button>
-                </td>
-            `;
-            tbody.appendChild(tr);
+            if (p.is_active === false) {
+                if(pastBody) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${p.username}</td><td><button class="btn-primary" onclick="reactivatePlayer(${p.id})">Activate</button></td>`;
+                    pastBody.appendChild(tr);
+                }
+            } else {
+                count++;
+                let armyLevel = `G${p.guardsman_level || 0}-S${p.specialist_level || 0}-M${p.monster_level || 0}`;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>#${p.id}</td>
+                    <td>${p.username}</td>
+                    <td><span class="rank-badge-text">${p.rank || 'Officer'}</span></td>
+                    <td>${armyLevel}</td>
+                    <td>
+                        <button class="btn-edit" data-id="${p.id}" data-name="${p.username}" data-rank="${p.rank}"><i class='bx bx-edit'></i> Edit</button>
+                        <button class="btn-danger" data-id="${p.id}"><i class='bx bx-trash'></i> Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            }
         });
+
+        const totalBadge = document.getElementById('management-total-players');
+        if (totalBadge) totalBadge.innerText = `${count} Players`;
 
         tbody.querySelectorAll('.btn-edit').forEach(btn => {
             btn.addEventListener('click', () => editPlayer(btn.dataset.id, btn.dataset.name, btn.dataset.rank));
@@ -421,18 +556,38 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', () => deletePlayer(btn.dataset.id));
         });
     }
+    
+    window.reactivatePlayer = async function(id) {
+        if(!confirm("Reactivate this past member?")) return;
+        try {
+            const response = await fetch(`/api/players/${id}/reactivate`, { method: 'POST', headers: {'Authorization': 'Basic ' + btoa('Shanks:shanks123')} });
+            if (response.ok) { fetchPlayers(); }
+        } catch(e) {}
+    }
 
-    document.getElementById('add-player-btn').addEventListener('click', async () => {
+
+    document.getElementById('add-player-submit-btn').addEventListener('click', async () => {
         const input = document.getElementById('new-player-input');
         const rankInput = document.getElementById('new-player-rank');
         const name = input.value.trim();
         const rank = rankInput.value;
+        
+        const guardsman = parseInt(document.getElementById('new-player-guardsman').value || 0);
+        const specialist = parseInt(document.getElementById('new-player-specialist').value || 0);
+        const monster = parseInt(document.getElementById('new-player-monster').value || 0);
+        
         if (!name) return;
         
         const response = await fetch('/api/players', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: name, rank: rank })
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Basic ' + btoa('Shanks:shanks123') },
+            body: JSON.stringify({ 
+                username: name, 
+                rank: rank,
+                guardsman_level: guardsman,
+                specialist_level: specialist,
+                monster_level: monster
+            })
         });
         
         const result = await response.json();
@@ -440,9 +595,20 @@ document.addEventListener('DOMContentLoaded', () => {
             alert("Error adding player: " + result.message);
         } else {
             input.value = '';
+            document.getElementById('new-player-rank').value = 'Veteran';
+            document.getElementById('new-player-guardsman').value = '0';
+            document.getElementById('new-player-specialist').value = '0';
+            document.getElementById('new-player-monster').value = '0';
+            document.getElementById('add-player-modal').classList.add('hidden');
             fetchPlayers();
         }
     });
+
+    
+    const openAddBtn = document.getElementById("open-add-modal-btn");
+    const closeAddBtn = document.getElementById("close-add-modal");
+    if(openAddBtn) openAddBtn.addEventListener("click", () => document.getElementById("add-player-modal").classList.remove("hidden"));
+    if(closeAddBtn) closeAddBtn.addEventListener("click", () => document.getElementById("add-player-modal").classList.add("hidden"));
 
     let currentEditingPlayerId = null;
 
@@ -497,8 +663,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Analytics Logic ---
     async function loadAnalytics() {
+        const offset = document.getElementById("analytics-week-select")?.value || "0";
         try {
-            const response = await fetch('/api/analytics');
+            const response = await fetch(`/api/analytics?offset=${offset}`);
             const result = await response.json();
             if (result.status === 'success') {
                 analyticsData = result.data;
@@ -517,6 +684,11 @@ document.addEventListener('DOMContentLoaded', () => {
             ? ((analyticsData.targets.total_score / analyticsData.targets.total_goal) * 100).toFixed(0) 
             : 0;
         document.getElementById('target-percent').textContent = targetPercentStr + '%';
+        if(analyticsData.week_label) {
+            const h = document.querySelector('#analytics-view .view-header p');
+            if(h) h.textContent = `Detailed breakdown for ${analyticsData.week_label}`;
+        }
+    
         document.getElementById('target-text').textContent = `${analyticsData.targets.total_score} / ${analyticsData.targets.total_goal} points`;
         document.getElementById('target-bar').style.width = Math.min(targetPercentStr, 100) + '%';
 
@@ -656,12 +828,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTrends();
     });
     
-    document.getElementById('trend-weekly-btn').addEventListener('click', (e) => {
-        currentTrendView = 'weekly';
-        document.getElementById('trend-weekly-btn').classList.add('active');
-        document.getElementById('trend-daily-btn').classList.remove('active');
-        renderTrends();
-    });
+    
 
     // Source toggles
     ['daily', 'weekly', 'monthly'].forEach(view => {

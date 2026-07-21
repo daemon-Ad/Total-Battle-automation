@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,16 +9,18 @@
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="/assets/style.css">
     <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
-    
+
     <!-- Google Translate Script -->
     <script type="text/javascript">
         function googleTranslateElementInit() {
-            new google.translate.TranslateElement({pageLanguage: 'en'}, 'google_translate_element');
+            new google.translate.TranslateElement({ pageLanguage: 'en' }, 'google_translate_element');
         }
     </script>
-    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+    <script type="text/javascript"
+        src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
 
     <!-- Sidebar Navigation -->
@@ -56,7 +59,7 @@
 
     <!-- Main Content Area -->
     <div class="main-content" id="main-content">
-        
+
         <!-- Horizontal Navbar -->
         <div class="top-navbar">
             <div class="navbar-left">
@@ -65,13 +68,15 @@
                 </a>
             </div>
             <div class="navbar-right">
-                <button class="btn-secondary back-to-home-btn" id="global-back-btn" style="margin-bottom: 0; margin-right: 1.5rem; display: none;"><i class='bx bx-arrow-back'></i> Back</button>
+                <button class="btn-secondary back-to-home-btn" id="global-back-btn"
+                    style="margin-bottom: 0; margin-right: 1.5rem; display: none;"><i class='bx bx-arrow-back'></i>
+                    Back</button>
                 <div id="google_translate_element"></div>
             </div>
         </div>
 
         <div class="container">
-            
+
             <!-- VIEW 0: Home -->
             <section id="home-view" class="view active">
                 <header>
@@ -80,115 +85,175 @@
                 </header>
 
                 <div class="home-cards">
-                    <a href="#" class="home-card glass-card nav-card" data-target="analytics-view" style="text-decoration: none; color: inherit;">
+                    <a href="#" class="home-card glass-card nav-card" data-target="analytics-view"
+                        style="text-decoration: none; color: inherit;">
                         <i class='bx bx-line-chart'></i>
                         <h3>Analytics</h3>
                         <p>Track weekly targets, member progress, and chest trends</p>
                     </a>
-                    <a href="#" class="home-card glass-card nav-card" data-target="leaderboard-view" style="text-decoration: none; color: inherit;">
+                    <a href="#" class="home-card glass-card nav-card" data-target="leaderboard-view"
+                        style="text-decoration: none; color: inherit;">
                         <i class='bx bx-bar-chart-alt-2'></i>
                         <h3>Leaderboard</h3>
                         <p>View weekly chest contributions and scores</p>
                     </a>
-                    <a href="#" class="home-card glass-card nav-card" data-target="management-view" style="text-decoration: none; color: inherit;">
+                    <a href="#" class="home-card glass-card nav-card" data-target="management-view"
+                        style="text-decoration: none; color: inherit;">
                         <i class='bx bx-user-circle'></i>
                         <h3>Player Management</h3>
                         <p>Add, edit, or remove clan members</p>
                     </a>
-                    <a href="#" class="home-card glass-card nav-card" data-target="settings-view" style="text-decoration: none; color: inherit;">
+                    <a href="#" class="home-card glass-card nav-card" data-target="settings-view"
+                        style="text-decoration: none; color: inherit;">
                         <i class='bx bx-cog'></i>
                         <h3>Chest Settings</h3>
                         <p>Configure weekly goals and system parameters</p>
                     </a>
-                    <a href="#" class="home-card glass-card nav-card" data-target="feedback-view" style="text-decoration: none; color: inherit;">
+                    <a href="#" class="home-card glass-card nav-card" data-target="feedback-view"
+                        style="text-decoration: none; color: inherit;">
                         <i class='bx bx-message-square-dots'></i>
                         <h3>Feedback</h3>
                         <p>Submit suggestions or feature requests</p>
                     </a>
                 </div>
+
+                <!-- Best/Worst Performers -->
+                <div class="analytics-card" style="margin-top: 20px;">
+                    <div class="card-header-flex">
+                        <div>
+                            <h3>Clan Performers</h3>
+                            <p class="subtitle">Best and Worst performers</p>
+                        </div>
+                        <select id="home-performers-timeframe" class="form-control" style="width: auto;">
+                            <option value="daily">Daily</option>
+                            <option value="weekly" selected>Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="overall">Overall</option>
+                        </select>
+                    </div>
+
+                    <div style="display: flex; gap: 20px; margin-top: 15px;">
+                        <div style="flex: 1;">
+                            <h4 style="color: var(--success-color); margin-bottom: 10px;"><i
+                                    class='bx bx-up-arrow-circle'></i> Top 10</h4>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Player</th>
+                                        <th>Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="top-performers-body"></tbody>
+                            </table>
+                        </div>
+                        <div style="flex: 1;">
+                            <h4 style="color: var(--danger-color); margin-bottom: 10px;"><i
+                                    class='bx bx-down-arrow-circle'></i> Bottom 10</h4>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Player</th>
+                                        <th>Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bottom-performers-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <!-- VIEW 6: Analytics Dashboard -->
             <section id="analytics-view" class="view">
-                <header>
-                    <h1>Clan Analytics</h1>
-                    <p>Track weekly targets, member progress, and chest trends.</p>
-                </header>
+                <div class="view-header">
+                    <div>
+                        <h1>Clan Analytics</h1>
+                        <p>Track weekly targets, member progress, and chest trends.</p>
+                    </div>
+                    <select id="analytics-week-select" class="form-control" style="width: 200px;">
+                        <option value="0">This Week</option>
+                        <option value="1">Last Week</option>
+                        <option value="2">2 Weeks Ago</option>
+                        <option value="3">3 Weeks Ago</option>
+                    </select>
+                </div>
                 <div class="analytics-inner">
 
-                <!-- TARGETS ROW -->
-                <div class="analytics-card">
-                    <h3>Targets</h3>
-                    <p class="subtitle">Weekly points progression</p>
-                    <div class="progress-container">
-                        <div class="progress-labels">
-                            <span class="progress-title">CLAN WEEKLY PROGRESS</span>
-                            <span class="progress-percent" id="target-percent">0%</span>
-                        </div>
-                        <div class="progress-stats">
-                            <span id="target-text">0 / 0 points</span>
-                        </div>
-                        <div class="progress-bar-bg">
-                            <div class="progress-bar-fill" id="target-bar"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- SUMMARY ROW -->
-                <div class="analytics-row" style="grid-template-columns: 1fr 1fr;">
-                    <div class="analytics-card donut-card">
-                        <h3>SUMMARY</h3>
-                        <div class="chart-container-donut">
-                            <canvas id="donutChart"></canvas>
-                            <div class="donut-center-text">
-                                <h2 id="total-members-text">0</h2>
-                                <p>MEMBERS</p>
+                    <!-- TARGETS ROW -->
+                    <div class="analytics-card">
+                        <h3>Targets</h3>
+                        <p class="subtitle">Weekly points progression</p>
+                        <div class="progress-container">
+                            <div class="progress-labels">
+                                <span class="progress-title">CLAN WEEKLY PROGRESS</span>
+                                <span class="progress-percent" id="target-percent">0%</span>
+                            </div>
+                            <div class="progress-stats">
+                                <span id="target-text">0 / 0 points</span>
+                            </div>
+                            <div class="progress-bar-bg">
+                                <div class="progress-bar-fill" id="target-bar"></div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="analytics-card member-list-card">
-                        <h3>NEEDS ATTENTION (<span id="needs-attention-count">0</span>)</h3>
-                        <div class="member-list" id="needs-attention-list">
-                            <!-- Injected -->
+                    <!-- SUMMARY ROW -->
+                    <div class="analytics-row" style="grid-template-columns: 1fr 1fr;">
+                        <div class="analytics-card donut-card">
+                            <h3>SUMMARY</h3>
+                            <div class="chart-container-donut">
+                                <canvas id="donutChart"></canvas>
+                                <div class="donut-center-text">
+                                    <h2 id="total-members-text">0</h2>
+                                    <p>MEMBERS</p>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- TRENDS ROW -->
-                <div class="analytics-card">
-                    <div class="card-header-flex">
-                        <div>
-                            <h3>Trends</h3>
-                            <p class="subtitle">Chest collection patterns (Last 30 Days)</p>
-                        </div>
-                        <div class="toggle-group">
-                            <button class="toggle-btn active" id="trend-daily-btn">Daily</button>
-                            <button class="toggle-btn" id="trend-weekly-btn">Weekly</button>
+                        <div class="analytics-card member-list-card">
+                            <h3>NEEDS ATTENTION (<span id="needs-attention-count">0</span>)</h3>
+                            <div class="member-list" id="needs-attention-list">
+                                <!-- Injected -->
+                            </div>
                         </div>
                     </div>
-                    <div class="chart-container-line">
-                        <canvas id="trendChart"></canvas>
-                    </div>
-                </div>
 
-                <!-- SOURCES ROW -->
-                <div class="analytics-card">
-                    <div class="card-header-flex">
-                        <div>
-                            <h3>Sources</h3>
-                            <p class="subtitle">Chest distribution by category</p>
+                    <!-- TRENDS ROW -->
+                    <div class="analytics-card">
+                        <div class="card-header-flex">
+                            <div>
+                                <h3>Trends</h3>
+                                <p class="subtitle">Chest collection patterns (Last 30 Days)</p>
+                            </div>
+                            <div class="toggle-group">
+                                <button class="toggle-btn active" id="trend-daily-btn">Daily</button>
+
+                            </div>
                         </div>
-                        <div class="toggle-group">
-                            <button class="toggle-btn active" id="source-daily-btn">Daily</button>
-                            <button class="toggle-btn" id="source-weekly-btn">Weekly</button>
-                            <button class="toggle-btn" id="source-monthly-btn">Monthly</button>
+                        <div class="chart-container-line">
+                            <canvas id="trendChart"></canvas>
                         </div>
                     </div>
-                    <div class="chart-container-bar">
-                        <canvas id="sourceChart"></canvas>
+
+                    <!-- SOURCES ROW -->
+                    <div class="analytics-card">
+                        <div class="card-header-flex">
+                            <div>
+                                <h3>Sources</h3>
+                                <p class="subtitle">Chest distribution by category</p>
+                            </div>
+                            <div class="toggle-group">
+                                <button class="toggle-btn active" id="source-daily-btn">Daily</button>
+                                <button class="toggle-btn" id="source-weekly-btn">Weekly</button>
+                                <button class="toggle-btn" id="source-monthly-btn">Monthly</button>
+                            </div>
+                        </div>
+                        <div class="chart-container-bar">
+                            <canvas id="sourceChart"></canvas>
+                        </div>
                     </div>
-                </div>
 
                 </div> <!-- end analytics-inner -->
 
@@ -196,11 +261,25 @@
 
             <!-- VIEW 1: Leaderboard -->
             <section id="leaderboard-view" class="view">
-                <header>
-                    <h1>Clan Weekly Contributions</h1>
-                    <p>Automated Chest Extraction & Points Tally</p>
-                </header>
-
+                <div class="view-header" style="align-items: center;">
+                    <div>
+                        <h1>Clan Contributions</h1>
+                        <p>Automated Chest Extraction & Points Tally</p>
+                    </div>
+                    <div class="ct-toolbar">
+                        <select id="leaderboard-timeframe">
+                            <option value="daily">Daily</option>
+                            <option value="weekly" selected>Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="overall">Overall</option>
+                        </select>
+                        <select id="leaderboard-week-select">
+                            <option value="0">Current</option>
+                            <option value="1">Previous</option>
+                            <option value="2">Offset 2</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="toolbar glass-card">
                     <div class="search-box">
                         <i class='bx bx-search'></i>
@@ -219,16 +298,18 @@
                 </div>
 
                 <div class="glass-card table-wrapper">
-                    <table id="leaderboard-table">
+                    <table id="leaderboard-table" class="ct-table">
                         <thead>
                             <tr>
-                                <th>Rank</th>
-                                <th>Player</th>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th>Points</th>
+                                <th>Status</th>
+                                <th>Total Chests</th>
                                 <th>Common</th>
                                 <th>Rare</th>
                                 <th>Epic</th>
                                 <th>Events</th>
-                                <th class="score-col">Total Score</th>
                             </tr>
                         </thead>
                         <tbody id="leaderboard-body">
@@ -242,7 +323,8 @@
             <!-- VIEW 2: Player Details -->
             <section id="player-details-view" class="view">
                 <header>
-                    <button id="back-to-leaderboard" class="btn-secondary"><i class='bx bx-arrow-back'></i> Back</button>
+                    <button id="back-to-leaderboard" class="btn-secondary"><i class='bx bx-arrow-back'></i>
+                        Back</button>
                     <h1 id="details-player-name">Player Details</h1>
                     <p>Detailed chest extraction logs</p>
                 </header>
@@ -269,16 +351,25 @@
 
             <!-- VIEW 3: Player Management -->
             <section id="management-view" class="view">
-                <header>
-                    <div style="display: flex; align-items: center; gap: 1rem;">
-                        <h1>Player Management</h1>
-                        <div class="rank-badge" style="width: auto; padding: 0 1rem; border-radius: 4px;" id="management-total-players">0 Players</div>
+                <header style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <h1>Player Management</h1>
+                            <div class="rank-badge" style="width: auto; padding: 0 1rem; border-radius: 4px;"
+                                id="management-total-players">0 Players</div>
+                        </div>
+                        <p>Add, edit, or remove clan members</p>
                     </div>
-                    <p>Add, edit, or remove clan members</p>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                        <button class="btn-secondary" id="open-past-modal-btn" style="width: 100%;"><i
+                                class='bx bx-history'></i> View Past Members</button>
+                        <button class="btn-primary" id="open-add-modal-btn" style="width: 100%;"><i
+                                class='bx bx-user-plus'></i> Add Player</button>
+                    </div>
                 </header>
 
                 <div class="toolbar glass-card">
-                    <div class="search-box">
+                    <!-- <div class="search-box">
                         <input type="text" id="new-player-input" placeholder="New player name...">
                         <select id="new-player-rank" style="margin-left: 1rem; margin-right: 1rem;">
                             <option value="Leader">Leader</option>
@@ -289,7 +380,7 @@
                             <option value="Unknown">Unknown</option>
                         </select>
                         <button id="add-player-btn" class="btn-primary">Add Player</button>
-                    </div>
+                    </div> -->
                     <div class="filter-box">
                         <div class="search-box" style="margin-right: 1rem;">
                             <i class='bx bx-search'></i>
@@ -306,6 +397,54 @@
                             <option value="Unknown">Unknown</option>
                         </select>
                     </div>
+                    <div class="form-group" style="display:flex; gap:10px;">
+                        <!-- <div style="flex:1;">
+                            <label>Guardsman</label>
+                            <select id="new-player-guardsman" class="form-control">
+                                <option value="0">0</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                                <option value="9">9</option>
+                            </select>
+                        </div>
+                        <div style="flex:1;">
+                            <label>Specialist</label>
+                            <select id="new-player-specialist" class="form-control">
+                                <option value="0">0</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                                <option value="9">9</option>
+                            </select>
+                        </div>
+                        <div style="flex:1;">
+                            <label>Monster</label>
+                            <select id="new-player-monster" class="form-control">
+                                <option value="0">0</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                                <option value="9">9</option>
+                            </select>
+                        </div> -->
+                    </div>
+
                 </div>
 
                 <div class="glass-card table-wrapper">
@@ -315,6 +454,7 @@
                                 <th>ID</th>
                                 <th>Player Name</th>
                                 <th>Rank</th>
+                                <th>Army Level</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -332,7 +472,7 @@
                     <h1>Chest Settings</h1>
                     <p>Configure automation parameters</p>
                 </header>
-                
+
                 <div class="glass-card form-container">
                     <div class="form-group">
                         <label for="weekly-goal-input">Weekly Points Goal</label>
@@ -350,7 +490,7 @@
                     <h1>Feedback & Bug Reports</h1>
                     <p>Submit issues directly to the development team</p>
                 </header>
-                
+
                 <div class="glass-card form-container">
                     <div class="form-group">
                         <label for="fb-username">In-Game Name</label>
@@ -358,12 +498,13 @@
                     </div>
                     <div class="form-group">
                         <label for="fb-content">Your Feedback</label>
-                        <textarea id="fb-content" class="styled-input" rows="4" placeholder="What features do you need? What should be improved?"></textarea>
+                        <textarea id="fb-content" class="styled-input" rows="4"
+                            placeholder="What features do you need? What should be improved?"></textarea>
                     </div>
                     <button id="submit-feedback-btn" class="btn-primary">Submit Feedback</button>
                     <span id="feedback-status" style="margin-left: 15px;"></span>
                 </div>
-                
+
                 <!-- Feedback Admin View (Shown below form for convenience) -->
                 <h3 style="margin-top: 3rem; margin-bottom: 1rem;">Submitted Feedback (Admin View)</h3>
                 <div class="glass-card table-wrapper">
@@ -382,6 +523,101 @@
                 </div>
             </section>
 
+        </div>
+    </div>
+
+
+    <!-- Past Members Modal -->
+    <div id="past-members-modal" class="modal-overlay hidden">
+        <div class="modal-content glass-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2>Past Members</h2>
+                <button class="btn-icon" id="close-past-modal"><i class='bx bx-x'></i></button>
+            </div>
+            <table class="data-table" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="past-members-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+
+    <!-- Add Player Modal -->
+    <div id="add-player-modal" class="modal-overlay hidden">
+        <div class="modal-content glass-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2>Add Player</h2>
+                <button class="btn-icon" id="close-add-modal"><i class='bx bx-x'></i></button>
+            </div>
+            <div class="form-group">
+                <label>Player Name</label>
+                <input type="text" id="new-player-input" class="styled-input" placeholder="Name">
+            </div>
+            <div class="form-group">
+                <label>Rank</label>
+                <select id="new-player-rank" class="styled-input">
+                    <option>Leader</option>
+                    <option>Superior</option>
+                    <option>Officer</option>
+                    <option selected>Veteran</option>
+                    <option>Recruit</option>
+                </select>
+            </div>
+            <div class="form-group" style="display:flex; gap:10px;">
+                <div style="flex:1;">
+                    <label>Guardsman</label>
+                    <select id="new-player-guardsman" class="styled-input">
+                        <option value="0">0</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                    </select>
+                </div>
+                <div style="flex:1;">
+                    <label>Specialist</label>
+                    <select id="new-player-specialist" class="styled-input">
+                        <option value="0">0</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                    </select>
+                </div>
+                <div style="flex:1;">
+                    <label>Monster</label>
+                    <select id="new-player-monster" class="styled-input">
+                        <option value="0">0</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-actions" style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
+                <button id="add-player-submit-btn" class="btn-primary" style="width: 100%;">Submit</button>
+            </div>
         </div>
     </div>
 
@@ -404,6 +640,54 @@
                     <option value="Unknown">Unknown</option>
                 </select>
             </div>
+            <div class="form-group" style="display:flex; gap:10px;">
+                <div style="flex:1;">
+                    <label>Guardsman</label>
+                    <select id="edit-player-guardsman" class="form-control">
+                        <option value="0">0</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                    </select>
+                </div>
+                <div style="flex:1;">
+                    <label>Specialist</label>
+                    <select id="edit-player-specialist" class="form-control">
+                        <option value="0">0</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                    </select>
+                </div>
+                <div style="flex:1;">
+                    <label>Monster</label>
+                    <select id="edit-player-monster" class="form-control">
+                        <option value="0">0</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="modal-actions" style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
                 <button id="cancel-edit-btn" class="btn-secondary">Cancel</button>
                 <button id="save-edit-btn" class="btn-primary">Update</button>
@@ -413,4 +697,5 @@
 
     <script src="/assets/app.js"></script>
 </body>
+
 </html>

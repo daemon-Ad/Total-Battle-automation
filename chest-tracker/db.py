@@ -38,13 +38,21 @@ def setup_schema():
                 CREATE TABLE IF NOT EXISTS players (
                     id SERIAL PRIMARY KEY,
                     username TEXT UNIQUE NOT NULL,
-                    rank TEXT DEFAULT 'Officer'
+                    rank TEXT DEFAULT 'Officer',
+                    is_active BOOLEAN DEFAULT TRUE,
+                    guardsman_level INT DEFAULT 0,
+                    specialist_level INT DEFAULT 0,
+                    monster_level INT DEFAULT 0
                 )
             """)
             
             # Migrate existing tables
             cursor.execute("""
                 ALTER TABLE players ADD COLUMN IF NOT EXISTS rank TEXT DEFAULT 'Officer';
+                ALTER TABLE players ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+                ALTER TABLE players ADD COLUMN IF NOT EXISTS guardsman_level INT DEFAULT 0;
+                ALTER TABLE players ADD COLUMN IF NOT EXISTS specialist_level INT DEFAULT 0;
+                ALTER TABLE players ADD COLUMN IF NOT EXISTS monster_level INT DEFAULT 0;
             """)
 
             # Create users table for dashboard authentication

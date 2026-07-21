@@ -819,3 +819,87 @@ body {
     max-width: 400px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.8);
 }
+
+.view-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+}
+.view-header h1 {
+    margin-bottom: 0.25rem;
+}
+
+.ct-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    background-color: #f8f9fa; /* Light off-white bg */
+    color: #333;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.ct-table th {
+    background-color: #f1f3f5;
+    color: #555;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 12px 16px;
+    border-bottom: 2px solid #dee2e6;
+    text-align: left;
+}
+.ct-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e9ecef;
+    vertical-align: middle;
+}
+.ct-table tr:nth-child(even) {
+    background-color: #ffffff;
+}
+.ct-table tr:hover {
+    background-color: #e2e8f0;
+}
+/* Indicator Cells */
+.ct-target-pass {
+    background-color: #d1fae5 !important;
+    color: #065f46;
+}
+.ct-target-warn {
+    background-color: #fef3c7 !important;
+    color: #92400e;
+}
+/* Toolbar Toggles inside View Header */
+.ct-toolbar {
+    display: flex;
+    gap: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid #475569;
+}
+.ct-toolbar select, .ct-toolbar button {
+    border: none;
+    background: #334155;
+    color: #f8fafc;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border-right: 1px solid #475569;
+    outline: none;
+}
+.ct-toolbar select:last-child {
+    border-right: none;
+}
+.ct-toolbar select:hover, .ct-toolbar button:hover {
+    background: #475569;
+}
+/* Past Members Modal */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;
+}
+.modal-content {
+    background: var(--bg-card); width: 600px; max-width: 90%; border-radius: 8px; padding: 2rem;
+    max-height: 80vh; overflow-y: auto;
+}
+.hidden { display: none !important; }
