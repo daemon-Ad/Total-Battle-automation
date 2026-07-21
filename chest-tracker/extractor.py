@@ -297,15 +297,15 @@ class ChestExtractor:
             # 4. Batch Tapping (Fast UI Driving)
             if chests_processed > 0:
                 print(f"[Driver] Found {chests_processed} chests. Queued for OCR. Tapping instantly.")
-                for btn_bbox in open_buttons:
-                    cx = int((btn_bbox[0][0] + btn_bbox[2][0]) / 2)
-                    cy = int((btn_bbox[0][1] + btn_bbox[2][1]) / 2)
-                    
-                    # Calculate box_dims directly from the OCR text bounding box 
-                    # (This restricts the Gaussian scatter entirely inside the 'Open' word)
-                    w = int(btn_bbox[2][0] - btn_bbox[0][0])
-                    h = int(btn_bbox[2][1] - btn_bbox[0][1])
-                    
+                # The list acts like a Pez dispenser - as we open the top chest, the rest slide up.
+                # So we ONLY target the coordinate of the top-most button.
+                top_btn = open_buttons[0]
+                cx = int((top_btn[0][0] + top_btn[2][0]) / 2)
+                cy = int((top_btn[0][1] + top_btn[2][1]) / 2)
+                w = int(top_btn[2][0] - top_btn[0][0])
+                h = int(top_btn[2][1] - top_btn[0][1])
+                
+                for _ in range(chests_processed):
                     self.adb.tap(cx, cy, box_dims=(w, h))
                     time.sleep(0.3) # Wait for animation/slide
                 
@@ -389,10 +389,10 @@ class ChestExtractor:
                     if "contains:" in line_lower:
                         continue
                         
-                    clean_line = line_lower.replace('i', '1').replace('l', '1').replace('o', '0')
-                    time_matches = re.findall(r'\d+[hms]', clean_line)
+                    clean_line = line_lower.replace('i', '1').replace('l', '1').replace('o', '0').replace('z', '2').replace('b', 'h')
+                    time_matches = re.findall(r'\d+\s*[hms]', clean_line)
                     if time_matches:
-                        timer = " ".join(time_matches)
+                        timer = " ".join([m.replace(" ", "") for m in time_matches])
                         continue
                         
                     if not title and len(line) >= 3:
