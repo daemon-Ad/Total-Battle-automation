@@ -79,9 +79,14 @@
 
             <!-- VIEW 0: Home -->
             <section id="home-view" class="view active">
-                <header>
-                    <h1>Clan Management</h1>
-                    <p>Welcome to the central automation dashboard.</p>
+                <header style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <h1>Clan Management</h1>
+                        <p>Welcome to the central automation dashboard.</p>
+                    </div>
+                    <div>
+                        <button class="btn-primary" onclick="window.open('/api/reports/weekly', '_blank')"><i class='bx bx-download'></i> Weekly Report</button>
+                    </div>
                 </header>
 
                 <div class="home-cards">
@@ -172,12 +177,15 @@
                         <h1>Clan Analytics</h1>
                         <p>Track weekly targets, member progress, and chest trends.</p>
                     </div>
-                    <select id="analytics-week-select" class="form-control" style="width: 200px;">
-                        <option value="0">This Week</option>
-                        <option value="1">Last Week</option>
-                        <option value="2">2 Weeks Ago</option>
-                        <option value="3">3 Weeks Ago</option>
-                    </select>
+                    <div style="display: flex; gap: 10px;">
+                        <select id="analytics-week-select" class="form-control" style="width: 200px;">
+                            <option value="0">This Week</option>
+                            <option value="1">Last Week</option>
+                            <option value="2">2 Weeks Ago</option>
+                            <option value="3">3 Weeks Ago</option>
+                        </select>
+                        <button class="btn-primary" onclick="window.open('/api/reports/weekly', '_blank')"><i class='bx bx-download'></i> Report</button>
+                    </div>
                 </div>
                 <div class="analytics-inner">
 
@@ -278,6 +286,7 @@
                             <option value="1">Previous</option>
                             <option value="2">Offset 2</option>
                         </select>
+                        <button class="btn-primary" style="margin-left: 10px;" onclick="window.open('/api/reports/weekly', '_blank')"><i class='bx bx-download'></i> Report</button>
                     </div>
                 </div>
                 <div class="toolbar glass-card">

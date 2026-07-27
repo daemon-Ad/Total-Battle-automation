@@ -571,6 +571,79 @@ def get_analytics(offset: int = 0):
     finally:
         conn.close()
 
+
+from fastapi.responses import PlainTextResponse
+from datetime import date, timedelta
+
+@app.get("/api/reports/weekly")
+def download_weekly_report():
+    """Generate and download the weekly report for the previous week."""
+    today = date.today()
+    start_of_this_week = today - timedelta(days=today.weekday())
+    start_date = start_of_this_week - timedelta(days=7)
+    end_date = start_of_this_week
+    
+    file_name = f"weekly_report_{start_date.strftime('%d%b')}_{end_date.strftime('%d%b')}.txt"
+    
+    query = """
+        WITH calculated_logs AS (
+            SELECT 
+                player_id,
+                CASE 
+                    WHEN chest_type = 'common' THEN 
+                        CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 15 WHEN 25 THEN 30 WHEN 30 THEN 60 ELSE 0 END
+                    WHEN chest_type = 'rare' THEN
+                        CASE chest_level WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 20 WHEN 25 THEN 35 WHEN 30 THEN 65 ELSE 0 END
+                    WHEN chest_type IN ('epic', 'event') THEN
+                        CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 5 WHEN 15 THEN 10 WHEN 20 THEN 25 WHEN 25 THEN 50 WHEN 30 THEN 80 WHEN 35 THEN 140 ELSE 0 END
+                    ELSE 0
+                END as dynamic_points
+            FROM chest_logs
+            WHERE acquired_at >= %s AND acquired_at < %s
+        )
+        SELECT 
+            p.username,
+            COALESCE(SUM(c.dynamic_points), 0) AS total_score
+        FROM players p
+        LEFT JOIN calculated_logs c ON p.id = c.player_id
+        WHERE p.is_active = TRUE AND p.username NOT IN ('Unknown Player', 'Clan')
+        GROUP BY p.username
+        ORDER BY total_score DESC
+    """
+    
+    conn = get_db()
+    lines = []
+    lines.append(f"Clan Weekly Contributions: {start_date.strftime('%d %b %Y')} to {(end_date - timedelta(days=1)).strftime('%d %b %Y')}")
+    lines.append("="*60 + "\\n")
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(query, (start_date, end_date))
+            results = cursor.fetchall()
+            
+            if not results:
+                lines.append("No active players found for this period.")
+            else:
+                for row in results:
+                    points = row['total_score']
+                    if points >= 1000:
+                        formatted_points = f"{points/1000:.1f}K"
+                        if formatted_points.endswith(".0K"):
+                            formatted_points = f"{points//1000}K"
+                    else:
+                        formatted_points = str(points)
+                    lines.append(f"{row['username']}-{formatted_points}")
+    except Exception as e:
+        return PlainTextResponse(f"Error generating report: {e}", status_code=500)
+    finally:
+        conn.close()
+        
+    text_data = "\n".join(lines)
+    return PlainTextResponse(
+        content=text_data, 
+        headers={"Content-Disposition": f'attachment; filename="{file_name}"'}
+    )
+
+
 # --- FRONTEND MOUNTING ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DASHBOARD_DIR = os.path.join(BASE_DIR, "dashboard")

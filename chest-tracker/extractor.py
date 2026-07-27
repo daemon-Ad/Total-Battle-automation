@@ -40,8 +40,6 @@ class ChestExtractor:
         self.adb = ADBController()
         self.vision = VisionEngine()
         self.run_active = False
-        self.session_limit = random.randint(20, 80)
-        self.chests_opened_this_session = 0
         
         self.task_queue = queue.Queue()
         self.ocr_thread = None
@@ -311,35 +309,6 @@ class ChestExtractor:
                 
                 # Wait for the next batch of chests to slide all the way up
                 time.sleep(0.3)
-                
-                # --- Orchestration Pause Logic ---
-                self.chests_opened_this_session += chests_processed
-                
-                if self.chests_opened_this_session >= self.session_limit:
-                    print(f"Orchestrator Limit Reached: Opened {self.chests_opened_this_session} chests this session.")
-                    print("Entering deep sleep for human distraction simulation...")
-                    
-                    # Navigate back to Map/City
-                    back_pos = self.device_config.get('back_button', (50, 50))
-                    self.adb.back(back_btn_loc=back_pos)
-                    time.sleep(1.5)
-                    self.adb.back(back_btn_loc=back_pos)
-                    
-                    # Sleep 2-3 minutes
-                    deep_sleep_secs = random.uniform(120, 180)
-                    print(f"Sleeping for {deep_sleep_secs/60:.1f} minutes...")
-                    time.sleep(deep_sleep_secs)
-                    
-                    print("Waking up! Returning to Clan Gift Chests...")
-                    self._navigate_to_clan_page()
-                    self._navigate_to_gift_chests()
-                    if is_triumphal:
-                        self._navigate_to_triumphal_gifts()
-                    
-                    # Reset orchestration limit
-                    self.session_limit = random.randint(20, 80)
-                    self.chests_opened_this_session = 0
-                    print(f"New session limit set to {self.session_limit} chests.")
                     
             else:
                 print("Failed to process any chests in this batch. Retrying...")
