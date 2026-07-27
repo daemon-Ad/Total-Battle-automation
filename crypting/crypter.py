@@ -94,44 +94,13 @@ class Crypter:
         print(f"Could not find '{key}' on screen.")
         return None
 
-    def _get_nth_template_match(self, template_name, screen_img, n=1, threshold=0.7):
-        template_path = os.path.join(self.images_dir, template_name)
-        template_img = cv2.imread(template_path, cv2.IMREAD_COLOR)
-        if template_img is None: return None
-        
-        h, w = template_img.shape[:2]
-        res = cv2.matchTemplate(screen_img, template_img, cv2.TM_CCOEFF_NORMED)
-        loc_match = np.where(res >= threshold)
-        points = list(zip(*loc_match[::-1]))
-        
-        if not points: return None
-        
-        # Cluster points (group by y-coordinate proximity)
-        clusters = []
-        for pt in points:
-            found = False
-            for cluster in clusters:
-                if abs(cluster[0][1] - pt[1]) < h: # Within full height of each other
-                    cluster.append(pt)
-                    found = True
-                    break
-            if not found:
-                clusters.append([pt])
-                
-        # Sort clusters by y coordinate (top to bottom)
-        clusters.sort(key=lambda c: c[0][1])
-        
-        if n <= len(clusters):
-            pt = clusters[n-1][0] # take first point of cluster
-            return (int(pt[0] + w // 2), int(pt[1] + h // 2))
-        return None
-
     def _get_center_screen(self, screen_img):
         if 'center_screen' in self.config:
             return tuple(self.config['center_screen'])
         h, w = screen_img.shape[:2]
         center = (w // 2, h // 2)
         self.config['center_screen'] = center
+        return center
     def _recover_via_city_icon(self):
         """Perform UI recovery by tapping the city/map icon to close popups and return to the map."""
         print("Recovering UI by pressing the City/Map icon to clear popups...")

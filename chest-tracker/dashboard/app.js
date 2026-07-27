@@ -339,45 +339,6 @@ async function loadPerformers() {
         }
     }
 
-
-    function renderLeaderboard(data, tbody) {
-        if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No records found.</td></tr>';
-            return;
-        }
-
-        data.forEach((row, index) => {
-            const tr = document.createElement('tr');
-            const rankHtml = `<div class="rank-badge">${index + 1}</div>`;
-            
-            // Apply Tints based on points vs goal
-            if (row.total_score < weeklyGoal - 500) {
-                tr.classList.add('tint-danger');
-            } else if (row.total_score >= weeklyGoal) {
-                tr.classList.add('tint-success');
-            }
-            
-            tr.innerHTML = `
-                <td>${rankHtml}</td>
-                <td><a href="#" class="player-name-link" data-id="${row.id}">${row.username}</a></td>
-                <td>${row.common_chests}</td>
-                <td>${row.rare_chests}</td>
-                <td>${row.epic_chests}</td>
-                <td>${row.event_chests}</td>
-                <td class="score-col">${row.total_score}</td>
-            `;
-            
-            // Attach click event for detailed view
-            const link = tr.querySelector('.player-name-link');
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                openPlayerDetails(row.id);
-            });
-            
-            tbody.appendChild(tr);
-        });
-    }
-
     // Leaderboard Event Listeners
     searchInput.addEventListener('input', debounce(fetchLeaderboard, 300));
     
@@ -821,12 +782,14 @@ async function loadPerformers() {
     }
 
     // Trend toggles
-    document.getElementById('trend-daily-btn').addEventListener('click', (e) => {
-        currentTrendView = 'daily';
-        document.getElementById('trend-daily-btn').classList.add('active');
-        document.getElementById('trend-weekly-btn').classList.remove('active');
-        renderTrends();
-    });
+    const trendDailyBtn = document.getElementById('trend-daily-btn');
+    if (trendDailyBtn) {
+        trendDailyBtn.addEventListener('click', (e) => {
+            currentTrendView = 'daily';
+            trendDailyBtn.classList.add('active');
+            renderTrends();
+        });
+    }
     
     
 
