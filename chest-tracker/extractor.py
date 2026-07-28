@@ -36,12 +36,18 @@ from points import calculate_points
 from datetime import datetime, timedelta, timezone
 
 class ChestExtractor:
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.adb = ADBController()
         self.vision = VisionEngine()
         self.run_active = False
+        self.mode = kwargs.get('mode', 'rapid')
         
+        if self.mode == 'anti-telemetry':
+            self.session_limit = random.randint(20, 80)
+            self.chests_opened_this_session = 0
+            
         self.task_queue = queue.Queue()
+        self.fallback_level_cache = {}
         self.ocr_thread = None
         
         self.config_dir = "config"
@@ -309,6 +315,36 @@ class ChestExtractor:
                 
                 # Wait for the next batch of chests to slide all the way up
                 time.sleep(0.3)
+                
+                # --- Orchestration Pause Logic ---
+                if self.mode == 'anti-telemetry':
+                    self.chests_opened_this_session += chests_processed
+                    
+                    if self.chests_opened_this_session >= self.session_limit:
+                        print(f"Orchestrator Limit Reached: Opened {self.chests_opened_this_session} chests this session.")
+                        print("Entering deep sleep for human distraction simulation...")
+                        
+                        # Navigate back to Map/City
+                        back_pos = self.device_config.get('back_button', (50, 50))
+                        self.adb.back(back_btn_loc=back_pos)
+                        time.sleep(1.5)
+                        self.adb.back(back_btn_loc=back_pos)
+                        
+                        # Sleep 2-3 minutes
+                        deep_sleep_secs = random.uniform(120, 180)
+                        print(f"Sleeping for {deep_sleep_secs/60:.1f} minutes...")
+                        time.sleep(deep_sleep_secs)
+                        
+                        print("Waking up! Returning to Clan Gift Chests...")
+                        self._navigate_to_clan_page()
+                        self._navigate_to_gift_chests()
+                        if is_triumphal:
+                            self._navigate_to_triumphal_gifts()
+                        
+                        # Reset orchestration limit
+                        self.session_limit = random.randint(20, 80)
+                        self.chests_opened_this_session = 0
+                        print(f"New session limit set to {self.session_limit} chests.")
                     
             else:
                 print("Failed to process any chests in this batch. Retrying...")
@@ -403,6 +439,10 @@ class ChestExtractor:
                     elif "olympus" in full_text_lower:
                         level = 25
                         chest_type = "event"
+                    elif "rise of ancients" in full_text_lower or "ancient" in full_text_lower:
+                        if level == 0:
+                            level = self.vision.get_ancient_chest_level(color_img_crop)
+                        chest_type = "event"
                     elif "arena" in full_text_lower:
                         level = 0
                         chest_type = "common"
@@ -425,9 +465,7 @@ class ChestExtractor:
                     elif "epic" in full_text_lower: 
                         chest_type = "epic"
                         
-                    # Fallback to color detection if no level was found in text
-                    if level == 0:
-                        level = self.vision.get_chest_level_from_color(color_img_crop)
+                    # No color fallback anymore; handled in fallback logic at the end.
                         
                     # Special modifier for Runic crypts
                     if "runic" in full_text_lower:
@@ -454,12 +492,38 @@ class ChestExtractor:
                 else:
                     acquired_at = calculate_acquired_time(timer)
                     
+                # Fallback logic if level is still 0
+                if level == 0 and player != "Clan":
+                    if player not in self.fallback_level_cache:
+                        fb = get_player_fallback_level(player)
+                        if fb > 0:
+                            self.fallback_level_cache[player] = fb
+                        else:
+                            self.fallback_level_cache[player] = 0
+                            
+                    if self.fallback_level_cache[player] > 0:
+                        level = self.fallback_level_cache[player]
+                        
                 pts = calculate_points(chest_type, level)
-                
                 log_chest(player, title, chest_type, level, source, timer, acquired_at, pts)
                 
             self.task_queue.task_done()
 
 if __name__ == "__main__":
-    extractor = ChestExtractor()
+    # Temporarily bypass the LogRedirector for the prompt so the user can see it!
+    original_stdout = sys.__stdout__
+    sys.stdout = original_stdout
+    
+    print("Select Extractor Mode:")
+    print("1: rapid (Continuous extraction, fastest speed)")
+    print("2: anti-telemetry (Simulates human pauses and distractions)")
+    
+    choice = input("Enter choice (1 or 2): ").strip()
+    mode = "anti-telemetry" if choice == "2" else "rapid"
+    print(f"\\nStarting extractor in {mode.upper()} mode...\\n")
+    
+    # Put the redirector back
+    sys.stdout = LogRedirector()
+    
+    extractor = ChestExtractor(mode=mode)
     extractor.start()

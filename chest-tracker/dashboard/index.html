@@ -645,6 +645,35 @@
     </div>
 
     <script src="/assets/app.js"></script>
+
+    <!-- Player History Modal -->
+    <div class="modal-overlay hidden" id="player-history-modal">
+        <div class="modal-content glass-card" style="max-width: 600px; width: 90%;">
+            <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 id="ph-title">Player History</h2>
+                <button class="btn-secondary" onclick="closePlayerHistory()"><i class='bx bx-x'></i></button>
+            </header>
+            <div class="table-wrapper" style="max-height: 400px; overflow-y: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Chest</th>
+                            <th>Level</th>
+                            <th>Points</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ph-tbody">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+            </div>
+            <div style="margin-top: 20px; text-align: right;">
+                <button class="btn-secondary" onclick="closePlayerHistory()">Close</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 
 </html>

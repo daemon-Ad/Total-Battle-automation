@@ -224,3 +224,40 @@ def log_chest(username: str, title: str, chest_type: str, level: int, source: st
 
 if __name__ == "__main__":
     setup_schema()
+
+def get_player_fallback_level(player_name: str) -> int:
+    """
+    Gets the minimum level from the player's last 100 normal (common/epic) chests.
+    Returns 0 if no chests are found.
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id FROM players WHERE username = %s LIMIT 1", (player_name,))
+            player = cursor.fetchone()
+            if not player:
+                return 0
+            
+            player_id = player[0]
+            query = """
+                WITH last_chests AS (
+                    SELECT chest_level 
+                    FROM chest_logs 
+                    WHERE player_id = %s 
+                      AND chest_type IN ('common', 'epic')
+                      AND chest_level > 0
+                    ORDER BY acquired_at DESC 
+                    LIMIT 100
+                )
+                SELECT MIN(chest_level) FROM last_chests
+            """
+            cursor.execute(query, (player_id,))
+            res = cursor.fetchone()
+            if res and res[0] is not None:
+                return int(res[0])
+            return 0
+    except Exception as e:
+        print(f"Error in get_player_fallback_level: {e}")
+        return 0
+    finally:
+        conn.close()

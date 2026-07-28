@@ -17,10 +17,10 @@ class VisionEngine:
             self.images_dir = images_dir
             
         self.templates = {}
-        self.chest_colors = {}
+        self.ancient_templates = {}
         
         self._load_templates()
-        self._load_chest_colors()
+        self._load_ancient_templates()
 
     def _load_templates(self):
         """Pre-load commonly used templates."""
@@ -37,21 +37,22 @@ class VisionEngine:
             else:
                 print(f"Warning: Template {path} not found.")
 
-    def _load_chest_colors(self):
-        """Pre-load chest color references."""
-        colors_dir = os.path.join(self.images_dir, "chest-colors")
-        if os.path.exists(colors_dir):
-            for path in glob.glob(os.path.join(colors_dir, "*.png")):
-                basename = os.path.basename(path) # e.g., level-15.png
+    def _load_ancient_templates(self):
+        """Pre-load ancient chest templates for exact image matching."""
+        ancients_dir = os.path.join(self.images_dir, "ancients")
+        self.ancient_templates = {}
+        if os.path.exists(ancients_dir):
+            for path in glob.glob(os.path.join(ancients_dir, "*.png")):
+                basename = os.path.basename(path)
                 level_str = basename.replace("level-", "").replace(".png", "")
                 try:
                     level = int(level_str)
                     img = cv2.imread(path, cv2.IMREAD_COLOR)
-                    self.chest_colors[level] = img
+                    self.ancient_templates[level] = img
                 except ValueError:
                     pass
         else:
-            print(f"Warning: Chest colors directory {colors_dir} not found.")
+            print(f"Warning: Ancients directory {ancients_dir} not found.")
 
     def find_template(self, screen_input, template_name, threshold=0.8):
         """
@@ -119,32 +120,41 @@ class VisionEngine:
         result = self.reader.readtext(rgb_image, detail=0)
         return " ".join(result).strip()
 
-    def get_chest_level_from_color(self, chest_crop):
+    def get_ancient_chest_level(self, chest_crop):
         """
-        Compare the chest crop against known level colors.
-        Uses structural similarity or simple MSE on resized images.
+        Use cv2.matchTemplate to find the best matching ancient chest image.
         """
-        if not self.chest_colors:
+        if not self.ancient_templates or chest_crop is None or chest_crop.size == 0:
             return 0
             
-        # Resize crop to a standard size for comparison (e.g., 50x50)
-        target_size = (50, 50)
-        resized_crop = cv2.resize(chest_crop, target_size)
-        
         best_level = 0
-        min_diff = float('inf')
+        best_match_val = -1
         
-        for level, ref_img in self.chest_colors.items():
-            resized_ref = cv2.resize(ref_img, target_size)
-            # Calculate Mean Squared Error (MSE)
-            err = np.sum((resized_crop.astype("float") - resized_ref.astype("float")) ** 2)
-            err /= float(resized_crop.shape[0] * resized_crop.shape[1])
+        # We need to resize either the crop or the template to match each other.
+        # Assuming they are roughly the same size if cropped identically, 
+        # but let's resize the crop to match each template just to be safe.
+        
+        for level, ref_img in self.ancient_templates.items():
+            if ref_img is None or ref_img.size == 0:
+                continue
             
-            if err < min_diff:
-                min_diff = err
-                best_level = level
+            h, w = ref_img.shape[:2]
+            try:
+                # Resize crop to exact template size for matchTemplate
+                resized_crop = cv2.resize(chest_crop, (w, h))
+                res = cv2.matchTemplate(resized_crop, ref_img, cv2.TM_CCOEFF_NORMED)
+                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
                 
-        return best_level
+                if max_val > best_match_val:
+                    best_match_val = max_val
+                    best_level = level
+            except Exception as e:
+                pass
+                
+        # Confidence threshold (e.g. 0.6)
+        if best_match_val > 0.6:
+            return best_level
+        return 0
 
     def parse_chest_block(self, screen_path, block_rect):
         """

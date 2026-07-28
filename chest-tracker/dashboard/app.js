@@ -320,7 +320,7 @@ async function loadPerformers() {
                     tr.className = rowClass;
                     tr.innerHTML = `
                         <td>${index + 1}</td>
-                        <td><strong>${p.username}</strong></td>
+                        <td><strong><a href="#" onclick="openPlayerHistory(${p.id}, '${p.username}'); return false;" style="color: inherit; text-decoration: underline; cursor: pointer;">${p.username}</a></strong></td>
                         <td>${formattedScore}</td>
                         <td>${statusIcon}</td>
                         <td>${totalChests}</td>
@@ -340,7 +340,7 @@ async function loadPerformers() {
     }
 
     // Leaderboard Event Listeners
-    searchInput.addEventListener('input', debounce(fetchLeaderboard, 300));
+    searchInput.addEventListener('input', debounce((e) => fetchLeaderboard(e.target.value), 300));
     
     sortSelect.addEventListener('change', (e) => {
         currentSortBy = e.target.value;
@@ -808,3 +808,57 @@ async function loadPerformers() {
         }
     });
 });
+
+
+    // --- Player History Modal Logic ---
+    window.openPlayerHistory = async function(playerId, username) {
+        const modal = document.getElementById('player-history-modal');
+        const title = document.getElementById('ph-title');
+        const tbody = document.getElementById('ph-tbody');
+        
+        title.textContent = `${username}'s Chest History`;
+        tbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
+        modal.classList.remove('hidden');
+        
+        try {
+            const response = await fetch(`/api/players/${playerId}/chests`);
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                tbody.innerHTML = '';
+                if (result.data.chests.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4">No chests logged.</td></tr>';
+                    return;
+                }
+                
+                result.data.chests.forEach(chest => {
+                    const tr = document.createElement('tr');
+                    const dateObj = new Date(chest.acquired_at);
+                    
+                    // Simple formatting without seconds
+                    const dateStr = dateObj.toLocaleDateString();
+                    const timeStr = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    
+                    let typeColor = 'var(--text-secondary)';
+                    if(chest.chest_type === 'rare') typeColor = '#3b82f6';
+                    if(chest.chest_type === 'epic' || chest.chest_type === 'event') typeColor = '#a855f7';
+                    
+                    tr.innerHTML = `
+                        <td><span style="color: ${typeColor}; text-transform: capitalize;">${chest.chest_type}</span> <br><small style="color: var(--text-secondary)">${chest.chest_title || chest.source}</small></td>
+                        <td>${chest.chest_level}</td>
+                        <td><strong>${chest.points}</strong></td>
+                        <td>${dateStr} <br><small>${timeStr}</small></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4">Failed to load history.</td></tr>';
+            }
+        } catch(e) {
+            tbody.innerHTML = '<tr><td colspan="4">Network error.</td></tr>';
+        }
+    };
+
+    window.closePlayerHistory = function() {
+        document.getElementById('player-history-modal').classList.add('hidden');
+    };
