@@ -146,7 +146,8 @@ def get_leaderboard(
                     COUNT(*) FILTER (WHERE c.chest_type = 'rare') AS rare_chests,
                     COUNT(*) FILTER (WHERE c.chest_type = 'epic') AS epic_chests,
                     COUNT(*) FILTER (WHERE c.chest_type = 'event') AS event_chests,
-                    COALESCE(SUM(c.dynamic_points), 0) AS total_score
+                    COALESCE(SUM(c.dynamic_points), 0) AS total_score,
+                    COALESCE(SUM(c.dynamic_points) FILTER (WHERE c.chest_type IN ('common', 'rare', 'epic')), 0) AS pure_crypt_points
                 FROM players p
                 LEFT JOIN calculated_logs c ON p.id = c.player_id
             """
@@ -159,7 +160,7 @@ def get_leaderboard(
                 
             query += " GROUP BY p.id, p.username"
             
-            valid_sort_cols = ["username", "common_chests", "rare_chests", "epic_chests", "event_chests", "total_score"]
+            valid_sort_cols = ["username", "common_chests", "rare_chests", "epic_chests", "event_chests", "total_score", "pure_crypt_points"]
             if sort_by not in valid_sort_cols:
                 sort_by = "total_score"
             sort_order = "ASC" if order.lower() == "asc" else "DESC"
@@ -572,17 +573,29 @@ def get_analytics(offset: int = 0):
         conn.close()
 
 
-from fastapi.responses import PlainTextResponse
-from datetime import date, timedelta
 
-@app.get("/api/reports/weekly")
-def download_weekly_report():
-    """Generate and download the weekly report for the previous week."""
+# --- REPORT GENERATION ENDPOINTS ---
+from fastapi.responses import PlainTextResponse
+from datetime import date, datetime, timedelta, timezone
+
+def format_points_k(points: int) -> str:
+    if points >= 1000:
+        formatted = f"{points/1000:.1f}K"
+        if formatted.endswith(".0K"):
+            formatted = f"{points//1000}K"
+        return formatted
+    return str(points)
+
+def get_weekly_date_range(offset: int = 0):
     today = date.today()
     start_of_this_week = today - timedelta(days=today.weekday())
-    start_date = start_of_this_week - timedelta(days=7)
-    end_date = start_of_this_week
-    
+    start_date = start_of_this_week - timedelta(days=7 * (offset + 1))
+    end_date = start_date + timedelta(days=7)
+    return start_date, end_date
+
+@app.get("/api/reports/normal-weekly")
+def download_normal_weekly_report(offset: int = 0):
+    start_date, end_date = get_weekly_date_range(offset)
     file_name = f"weekly_report_{start_date.strftime('%d%b')}_{end_date.strftime('%d%b')}.txt"
     
     query = """
@@ -612,36 +625,205 @@ def download_weekly_report():
     """
     
     conn = get_db()
-    lines = []
-    lines.append(f"Clan Weekly Contributions: {start_date.strftime('%d %b %Y')} to {(end_date - timedelta(days=1)).strftime('%d %b %Y')}")
-    lines.append("="*60 + "\\n")
+    lines = [f"Normal Weekly Contributions: {start_date.strftime('%d %b %Y')} to {(end_date - timedelta(days=1)).strftime('%d %b %Y')}", "="*60 + "\n"]
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute(query, (start_date, end_date))
             results = cursor.fetchall()
-            
             if not results:
                 lines.append("No active players found for this period.")
             else:
                 for row in results:
-                    points = row['total_score']
-                    if points >= 1000:
-                        formatted_points = f"{points/1000:.1f}K"
-                        if formatted_points.endswith(".0K"):
-                            formatted_points = f"{points//1000}K"
-                    else:
-                        formatted_points = str(points)
-                    lines.append(f"{row['username']}-{formatted_points}")
+                    lines.append(f"{row['username']}-{format_points_k(row['total_score'])}")
     except Exception as e:
         return PlainTextResponse(f"Error generating report: {e}", status_code=500)
     finally:
         conn.close()
         
-    text_data = "\n".join(lines)
-    return PlainTextResponse(
-        content=text_data, 
-        headers={"Content-Disposition": f'attachment; filename="{file_name}"'}
-    )
+    return PlainTextResponse(content="\n".join(lines), headers={"Content-Disposition": f'attachment; filename="{file_name}"'})
+
+
+@app.get("/api/reports/pure-crypting")
+def download_pure_crypting_report(offset: int = 0):
+    start_date, end_date = get_weekly_date_range(offset)
+    file_name = f"pure_crypting_report_{start_date.strftime('%d%b')}_{end_date.strftime('%d%b')}.txt"
+    
+    query = """
+        WITH calculated_logs AS (
+            SELECT 
+                player_id,
+                CASE 
+                    WHEN chest_type = 'common' THEN 
+                        CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 15 WHEN 25 THEN 30 WHEN 30 THEN 60 ELSE 0 END
+                    WHEN chest_type = 'rare' THEN
+                        CASE chest_level WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 20 WHEN 25 THEN 35 WHEN 30 THEN 65 ELSE 0 END
+                    WHEN chest_type = 'epic' THEN
+                        CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 5 WHEN 15 THEN 10 WHEN 20 THEN 25 WHEN 25 THEN 50 WHEN 30 THEN 80 WHEN 35 THEN 140 ELSE 0 END
+                    ELSE 0
+                END as dynamic_points
+            FROM chest_logs
+            WHERE acquired_at >= %s AND acquired_at < %s AND chest_type IN ('common', 'rare', 'epic')
+        )
+        SELECT 
+            p.username,
+            COALESCE(SUM(c.dynamic_points), 0) AS pure_score
+        FROM players p
+        LEFT JOIN calculated_logs c ON p.id = c.player_id
+        WHERE p.is_active = TRUE AND p.username NOT IN ('Unknown Player', 'Clan')
+        GROUP BY p.username
+        ORDER BY pure_score DESC
+    """
+    
+    conn = get_db()
+    lines = [f"Pure Crypting Weekly Report: {start_date.strftime('%d %b %Y')} to {(end_date - timedelta(days=1)).strftime('%d %b %Y')}", "="*60 + "\n"]
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(query, (start_date, end_date))
+            results = cursor.fetchall()
+            if not results:
+                lines.append("No active players found for this period.")
+            else:
+                for row in results:
+                    lines.append(f"{row['username']}-{format_points_k(row['pure_score'])}")
+    except Exception as e:
+        return PlainTextResponse(f"Error generating report: {e}", status_code=500)
+    finally:
+        conn.close()
+        
+    return PlainTextResponse(content="\n".join(lines), headers={"Content-Disposition": f'attachment; filename="{file_name}"'})
+
+
+def get_event_participation(pattern: str, duration_days: float):
+    """
+    Finds the start time of the most recent event occurrence (last 14 days) matching pattern,
+    defines window [start, start + duration_days], and returns participation status per active player.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            # 1. Find start time of most recent event
+            cursor.execute("""
+                SELECT MIN(acquired_at) as event_start
+                FROM chest_logs
+                WHERE (source ILIKE %s OR chest_title ILIKE %s)
+                  AND acquired_at >= NOW() - INTERVAL '14 days'
+            """, (f"%{pattern}%", f"%{pattern}%"))
+            row = cursor.fetchone()
+            event_start = row['event_start'] if row else None
+            
+            if not event_start:
+                # No event recorded in last 14 days
+                cursor.execute("SELECT username FROM players WHERE is_active = TRUE AND username NOT IN ('Unknown Player', 'Clan') ORDER BY username ASC")
+                players = cursor.fetchall()
+                return {
+                    "event_name": pattern,
+                    "event_start": None,
+                    "event_end": None,
+                    "data": [{"username": p['username'], "participated": "No", "chest_count": 0} for p in players]
+                }
+                
+            event_end = event_start + timedelta(days=duration_days)
+            
+            # 2. Get player participation inside this window
+            cursor.execute("""
+                SELECT 
+                    p.username,
+                    COUNT(c.id) as chest_count
+                FROM players p
+                LEFT JOIN chest_logs c ON p.id = c.player_id 
+                    AND (c.source ILIKE %s OR c.chest_title ILIKE %s)
+                    AND c.acquired_at >= %s AND c.acquired_at <= %s
+                WHERE p.is_active = TRUE AND p.username NOT IN ('Unknown Player', 'Clan')
+                GROUP BY p.username
+                ORDER BY p.username ASC
+            """, (f"%{pattern}%", f"%{pattern}%", event_start, event_end))
+            results = cursor.fetchall()
+            
+            data = []
+            for r in results:
+                cnt = r['chest_count']
+                data.append({
+                    "username": r['username'],
+                    "participated": "Yes" if cnt > 0 else "No",
+                    "chest_count": cnt
+                })
+                
+            return {
+                "event_name": pattern,
+                "event_start": event_start.isoformat() if isinstance(event_start, datetime) else str(event_start),
+                "event_end": event_end.isoformat() if isinstance(event_end, datetime) else str(event_end),
+                "data": data
+            }
+    finally:
+        conn.close()
+
+
+@app.get("/api/reports/olympus-participation")
+def download_olympus_report():
+    part = get_event_participation("Hermes", duration_days=5.0)
+    lines = ["Olympus Store (Hermes) Participation Report", "="*50]
+    if part["event_start"]:
+        lines.append(f"Event Window: {part['event_start'][:16]} to {part['event_end'][:16]}\n")
+    else:
+        lines.append("Event Window: No recent Hermes chests logged in last 14 days\n")
+        
+    lines.append("Player Name | Bought?")
+    lines.append("-" * 30)
+    for row in part["data"]:
+        lines.append(f"{row['username']} | {row['participated']}")
+        
+    return PlainTextResponse(content="\n".join(lines), headers={"Content-Disposition": 'attachment; filename="olympus_participation.txt"'})
+
+
+@app.get("/api/reports/ragnarok-participation")
+def download_ragnarok_report():
+    part = get_event_participation("Jormungandr", duration_days=2.0)
+    lines = ["Ragnarok (Jormungandr) Participation Report", "="*50]
+    if part["event_start"]:
+        lines.append(f"Event Window: {part['event_start'][:16]} to {part['event_end'][:16]}\n")
+    else:
+        lines.append("Event Window: No recent Jormungandr chests logged in last 14 days\n")
+        
+    lines.append("Player Name | Bought?")
+    lines.append("-" * 30)
+    for row in part["data"]:
+        lines.append(f"{row['username']} | {row['participated']}")
+        
+    return PlainTextResponse(content="\n".join(lines), headers={"Content-Disposition": 'attachment; filename="ragnarok_participation.txt"'})
+
+
+@app.get("/api/reports/ancients-participation")
+def download_ancients_report():
+    part = get_event_participation("ancients", duration_days=1.0)
+    lines = ["Rise of Ancients Participation Report", "="*50]
+    if part["event_start"]:
+        lines.append(f"Event Window: {part['event_start'][:16]} to {part['event_end'][:16]}\n")
+    else:
+        lines.append("Event Window: No recent Ancient chests logged in last 14 days\n")
+        
+    lines.append("Player Name | Participated?")
+    lines.append("-" * 30)
+    for row in part["data"]:
+        lines.append(f"{row['username']} | {row['participated']}")
+        
+    return PlainTextResponse(content="\n".join(lines), headers={"Content-Disposition": 'attachment; filename="ancients_participation.txt"'})
+
+
+@app.get("/api/reports/preview")
+def get_reports_preview(offset: int = 0):
+    """Provides JSON preview data for all reports to display on the Reports Page."""
+    start_date, end_date = get_weekly_date_range(offset)
+    olympus = get_event_participation("Hermes", 5.0)
+    ragnarok = get_event_participation("Jormungandr", 2.0)
+    ancients = get_event_participation("ancients", 1.0)
+    
+    return {
+        "status": "success",
+        "timeframe": f"{start_date.strftime('%d %b %Y')} - {(end_date - timedelta(days=1)).strftime('%d %b %Y')}",
+        "olympus": olympus,
+        "ragnarok": ragnarok,
+        "ancients": ancients
+    }
 
 
 # --- FRONTEND MOUNTING ---

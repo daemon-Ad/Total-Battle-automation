@@ -52,7 +52,7 @@ class ADBController:
             print("ERROR: adb screencap timed out!")
             return None
 
-    def tap(self, x, y, short_press=False, box_dims=None):
+    def tap(self, x, y, short_press=False, box_dims=None, custom_delay=None):
         """Simulate a perfect human tap using Gaussian scatter, finger roll, and Log-Normal durations."""
         
         # If we know the exact dimensions of the button, we map the Gaussian curve across the entire button surface.
@@ -87,9 +87,18 @@ class ADBController:
         # Use swipe to broadcast complex touch telemetry (duration + micro-movement) instead of a 0ms single-pixel tap
         self._adb_command("shell", "input", "swipe", str(final_x), str(final_y), str(roll_x), str(roll_y), str(duration_ms))
         
-        # Human-like delay after tapping using a Log-Normal distribution (median ~0.35s, with rare long tails)
-        extra_delay = random.lognormvariate(-1.0, 0.8)
-        time.sleep(0.1 + extra_delay)
+        if custom_delay is not None:
+            time.sleep(custom_delay)
+        else:
+            # Human-like delay after tapping using a Log-Normal distribution (median ~0.35s, with rare long tails)
+            extra_delay = random.lognormvariate(-1.0, 0.8)
+            time.sleep(0.1 + extra_delay)
+
+    def simple_tap(self, x, y, custom_delay=0.2):
+        """Perform a direct, raw adb tap without any swipe/telemetry simulation."""
+        self._adb_command("shell", "input", "tap", str(int(x)), str(int(y)))
+        if custom_delay is not None:
+            time.sleep(custom_delay)
 
     def back(self, back_btn_loc=None):
         """Press the Android Back button to close menus/popups using a random method."""

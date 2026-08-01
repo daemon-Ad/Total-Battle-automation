@@ -40,9 +40,14 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+#Zip
+*.zip
+*.json
+
 # Specific files to ignore
 research-1-dashboard.html
 .env
 project_chest-tracker_report.md
 chest-tracker/chest_tracker_detailed_report.md
 crypting/crypter_detailed_report.md
+

@@ -34,6 +34,10 @@
                 <i class='bx bx-home-alt'></i>
                 <span class="link-name">Home</span>
             </li>
+            <li data-view="reports-view">
+                <i class='bx bx-file'></i>
+                <span class="link-name">Reports</span>
+            </li>
             <li data-view="analytics-view">
                 <i class='bx bx-line-chart'></i>
                 <span class="link-name">Analytics</span>
@@ -85,11 +89,17 @@
                         <p>Welcome to the central automation dashboard.</p>
                     </div>
                     <div>
-                        <button class="btn-primary" onclick="window.open('/api/reports/weekly', '_blank')"><i class='bx bx-download'></i> Weekly Report</button>
+                        <button class="btn-primary" onclick="downloadBothWeeklyReports()"><i class='bx bx-download'></i> Weekly Reports</button>
                     </div>
                 </header>
 
                 <div class="home-cards">
+                    <a href="#" class="home-card glass-card nav-card" data-target="reports-view"
+                        style="text-decoration: none; color: inherit;">
+                        <i class='bx bx-file'></i>
+                        <h3>Reports</h3>
+                        <p>Generate & download weekly & event participation reports</p>
+                    </a>
                     <a href="#" class="home-card glass-card nav-card" data-target="analytics-view"
                         style="text-decoration: none; color: inherit;">
                         <i class='bx bx-line-chart'></i>
@@ -171,6 +181,109 @@
             </section>
 
             <!-- VIEW 6: Analytics Dashboard -->
+            
+            <!-- VIEW: Dedicated Reports -->
+            <section id="reports-view" class="view">
+                <header style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
+                    <div>
+                        <h1>Reports & Event Tracking</h1>
+                        <p>Generate weekly point reports and event participation records.</p>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="reports-week-select" class="btn-secondary" style="padding: 8px 12px; font-size: 0.9rem;">
+                            <option value="0">Current Week</option>
+                            <option value="1">Previous Week</option>
+                            <option value="2">2 Weeks Ago</option>
+                        </select>
+                        <button class="btn-primary" onclick="downloadBothWeeklyReports()"><i class='bx bx-download'></i> Download Both Weekly Reports</button>
+                    </div>
+                </header>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                    <!-- Report Card 1: Normal Weekly -->
+                    <div class="glass-card" style="padding: 1.5rem;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem;">
+                            <i class='bx bx-bar-chart' style="font-size: 2rem; color: var(--primary-hover);"></i>
+                            <div>
+                                <h3 style="margin: 0;">Standard Weekly Report</h3>
+                                <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary);">All chest types included</p>
+                            </div>
+                        </div>
+                        <button class="btn-secondary" style="width: 100%;" onclick="downloadReport('/api/reports/normal-weekly')"><i class='bx bx-download'></i> Download Report</button>
+                    </div>
+
+                    <!-- Report Card 2: Pure Crypting -->
+                    <div class="glass-card" style="padding: 1.5rem;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem;">
+                            <i class='bx bx-shield-quarter' style="font-size: 2rem; color: #10b981;"></i>
+                            <div>
+                                <h3 style="margin: 0;">Pure Crypting Report</h3>
+                                <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary);">Common, Rare & Epic chests only</p>
+                            </div>
+                        </div>
+                        <button class="btn-secondary" style="width: 100%;" onclick="downloadReport('/api/reports/pure-crypting')"><i class='bx bx-download'></i> Download Report</button>
+                    </div>
+                </div>
+
+                <h2 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px;"><i class='bx bx-calendar-event'></i> Event Participation Reports</h2>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem;">
+                    <!-- Event 1: Olympus Store -->
+                    <div class="glass-card" style="padding: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3>Olympus Store (%Hermes%)</h3>
+                            <span class="badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">5-Day Window</span>
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;" id="olympus-window-info">Loading event window...</p>
+                        <div class="table-wrapper" style="max-height: 250px; overflow-y: auto; margin-bottom: 1rem;">
+                            <table class="data-table" style="width: 100%;">
+                                <thead>
+                                    <tr><th>Player</th><th>Bought?</th><th>Chests</th></tr>
+                                </thead>
+                                <tbody id="olympus-preview-body"><tr><td colspan="3">Loading...</td></tr></tbody>
+                            </table>
+                        </div>
+                        <button class="btn-secondary" style="width: 100%;" onclick="window.open('/api/reports/olympus-participation', '_blank')"><i class='bx bx-download'></i> Export (.txt)</button>
+                    </div>
+
+                    <!-- Event 2: Ragnarok -->
+                    <div class="glass-card" style="padding: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3>Ragnarok (%Jormungandr%)</h3>
+                            <span class="badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">2-Day Window</span>
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;" id="ragnarok-window-info">Loading event window...</p>
+                        <div class="table-wrapper" style="max-height: 250px; overflow-y: auto; margin-bottom: 1rem;">
+                            <table class="data-table" style="width: 100%;">
+                                <thead>
+                                    <tr><th>Player</th><th>Bought?</th><th>Chests</th></tr>
+                                </thead>
+                                <tbody id="ragnarok-preview-body"><tr><td colspan="3">Loading...</td></tr></tbody>
+                            </table>
+                        </div>
+                        <button class="btn-secondary" style="width: 100%;" onclick="window.open('/api/reports/ragnarok-participation', '_blank')"><i class='bx bx-download'></i> Export (.txt)</button>
+                    </div>
+
+                    <!-- Event 3: Rise of Ancients -->
+                    <div class="glass-card" style="padding: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3>Rise of Ancients (%ancients%)</h3>
+                            <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">1-Day Window</span>
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;" id="ancients-window-info">Loading event window...</p>
+                        <div class="table-wrapper" style="max-height: 250px; overflow-y: auto; margin-bottom: 1rem;">
+                            <table class="data-table" style="width: 100%;">
+                                <thead>
+                                    <tr><th>Player</th><th>Participated?</th><th>Chests</th></tr>
+                                </thead>
+                                <tbody id="ancients-preview-body"><tr><td colspan="3">Loading...</td></tr></tbody>
+                            </table>
+                        </div>
+                        <button class="btn-secondary" style="width: 100%;" onclick="window.open('/api/reports/ancients-participation', '_blank')"><i class='bx bx-download'></i> Export (.txt)</button>
+                    </div>
+                </div>
+            </section>
+
             <section id="analytics-view" class="view">
                 <div class="view-header">
                     <div>
@@ -319,6 +432,7 @@
                                 <th>Rare</th>
                                 <th>Epic</th>
                                 <th>Events</th>
+                                <th>Pure Crypt Points</th>
                             </tr>
                         </thead>
                         <tbody id="leaderboard-body">

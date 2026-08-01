@@ -148,6 +148,7 @@ async function loadPerformers() {
             backBtn.style.display = 'flex';
         }
 
+        if (viewId === 'reports-view') loadReportsPreview();
         if (viewId === 'analytics-view') loadAnalytics();
         if (viewId === 'leaderboard-view') fetchLeaderboard();
         if (viewId === 'management-view') fetchPlayers();
@@ -282,7 +283,7 @@ async function loadPerformers() {
             if (result.status === 'success') {
                 tbody.innerHTML = '';
                 if (result.data.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="9">No data found.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="10">No data found.</td></tr>`;
                     return;
                 }
                 
@@ -290,6 +291,10 @@ async function loadPerformers() {
                     // Number Formatting K
                     let formattedScore = p.total_score >= 1000 ? (p.total_score/1000).toFixed(1) + 'K' : p.total_score;
                     if(String(formattedScore).endsWith('.0K')) formattedScore = formattedScore.replace('.0K', 'K');
+                    
+                    let purePts = p.pure_crypt_points || 0;
+                    let formattedPureScore = purePts >= 1000 ? (purePts/1000).toFixed(1) + 'K' : purePts;
+                    if(String(formattedPureScore).endsWith('.0K')) formattedPureScore = formattedPureScore.replace('.0K', 'K');
                     
                     // Chests Logic
                     let totalChests = (p.common_chests||0) + (p.rare_chests||0) + (p.epic_chests||0) + (p.event_chests||0);
@@ -328,12 +333,13 @@ async function loadPerformers() {
                         <td>${p.rare_chests || 0}</td>
                         <td>${p.epic_chests || 0}</td>
                         <td>${p.event_chests || 0}</td>
+                        <td><strong>${formattedPureScore}</strong></td>
                     `;
                     tbody.appendChild(tr);
                 });
             }
         } catch (error) {
-            tbody.innerHTML = `<tr><td colspan="9">Network Error</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="10">Network Error</td></tr>`;
         } finally {
             loadingEl.classList.add('hidden');
         }
@@ -862,3 +868,82 @@ async function loadPerformers() {
     window.closePlayerHistory = function() {
         document.getElementById('player-history-modal').classList.add('hidden');
     };
+
+
+    // --- Reports View Logic ---
+    const reportsWeekSelect = document.getElementById("reports-week-select");
+    if(reportsWeekSelect) reportsWeekSelect.addEventListener("change", loadReportsPreview);
+
+    window.triggerDirectDownload = function(url) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
+    window.downloadBothWeeklyReports = function() {
+        const offset = document.getElementById("reports-week-select")?.value || "0";
+        window.triggerDirectDownload(`/api/reports/normal-weekly?offset=${offset}`);
+        setTimeout(() => {
+            window.triggerDirectDownload(`/api/reports/pure-crypting?offset=${offset}`);
+        }, 600);
+    };
+
+    window.downloadReport = function(endpoint) {
+        const offset = document.getElementById("reports-week-select")?.value || "0";
+        window.triggerDirectDownload(`${endpoint}?offset=${offset}`);
+    };
+
+    window.loadReportsPreview = async function() {
+        const offset = document.getElementById("reports-week-select")?.value || "0";
+        try {
+            const response = await fetch(`/api/reports/preview?offset=${offset}`);
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                renderEventPreview("olympus", result.olympus);
+                renderEventPreview("ragnarok", result.ragnarok);
+                renderEventPreview("ancients", result.ancients);
+            }
+        } catch(e) {
+            console.error("Failed to load reports preview:", e);
+        }
+    };
+
+    function renderEventPreview(eventKey, eventData) {
+        const infoEl = document.getElementById(`${eventKey}-window-info`);
+        const tbody = document.getElementById(`${eventKey}-preview-body`);
+        
+        if (!infoEl || !tbody) return;
+        
+        if (eventData.event_start) {
+            const s = new Date(eventData.event_start).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+            const e = new Date(eventData.event_end).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+            infoEl.innerHTML = `<span style="color: var(--primary-hover); font-weight: 500;">Active Window:</span> ${s} to ${e}`;
+        } else {
+            infoEl.innerHTML = `<span style="color: var(--text-secondary);">No event logged in past 14 days</span>`;
+        }
+        
+        tbody.innerHTML = '';
+        if (!eventData.data || eventData.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3">No active players</td></tr>';
+            return;
+        }
+        
+        eventData.data.forEach(item => {
+            const tr = document.createElement('tr');
+            const isYes = item.participated === "Yes";
+            const badge = isYes 
+                ? `<span style="color: #10b981; font-weight: 600;"><i class='bx bx-check'></i> Yes</span>` 
+                : `<span style="color: var(--text-secondary);">No</span>`;
+                
+            tr.innerHTML = `
+                <td><strong>${item.username}</strong></td>
+                <td>${badge}</td>
+                <td>${item.chest_count}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }

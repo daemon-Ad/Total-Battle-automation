@@ -25,12 +25,13 @@ class LogRedirector:
         self.log_file.flush()
 
 sys.stdout = LogRedirector()
+sys.stderr = sys.stdout
 
 # Hook into the root anti-telemetry adb engine
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.adb import ADBController
 from vision import VisionEngine
-from db import log_chest
+from db import log_chest, get_player_fallback_level
 from time_utils import calculate_acquired_time
 from points import calculate_points
 from datetime import datetime, timedelta, timezone
@@ -360,154 +361,166 @@ class ChestExtractor:
                 self.task_queue.task_done()
                 break
                 
-            for text_img_crop, color_img_crop in batch:
-                results = self.vision.reader.readtext(text_img_crop, detail=1)
-                results.sort(key=lambda r: r[0][0][1])
-                chest_texts = [text for bbox, text, conf in results]
-                
-                # Parse the extracted text
-                title = ""
-                player = ""
-                source = ""
-                timer = ""
-                is_expired = False
-                
-                for line_raw in chest_texts:
-                    line = line_raw.strip()
-                    line_lower = line.lower()
+            try:
+                for text_img_crop, color_img_crop in batch:
+                    results = self.vision.reader.readtext(text_img_crop, detail=1)
+                    results.sort(key=lambda r: r[0][0][1])
+                    chest_texts = [text for bbox, text, conf in results]
                     
-                    if "delete" in line_lower:
-                        is_expired = True
-                        continue
-                        
-                    if "from:" in line_lower:
-                        player = line_lower.split("from:")[1].strip()
-                        idx = line_lower.find("from:") + 5
-                        player = line[idx:].strip()
-                        continue
-                        
-                    if "source:" in line_lower:
-                        idx = line_lower.find("source:") + 7
-                        source = line[idx:].strip()
-                        continue
-                        
-                    if "contains:" in line_lower:
-                        continue
-                        
-                    clean_line = line_lower.replace('i', '1').replace('l', '1').replace('o', '0').replace('z', '2').replace('b', 'h')
-                    time_matches = re.findall(r'\d+\s*[hms]', clean_line)
-                    if time_matches:
-                        timer = " ".join([m.replace(" ", "") for m in time_matches])
-                        continue
-                        
-                    if not title and len(line) >= 3:
-                        title = line
-                        
-                if not title and not player and not source:
-                    continue
+                    # Parse the extracted text
+                    title = ""
+                    player = ""
+                    source = ""
+                    timer = ""
+                    is_expired = False
+                    use_db_fallback = False
                     
-                # 1. Base Type Parsing
-                chest_type = "common"
-                source_lower = source.lower()
-                title_lower = title.lower()
-                full_text_lower = f"{source_lower} {title_lower}"
-                
-                is_event = False
-                if "crypt" not in source_lower and "citadel" not in source_lower and not is_expired:
-                     is_event = True
-                     chest_type = "event"
-                     
-                # Try to find explicit level via Regex
-                level = 0
-                match = re.search(r'Level (\d+)', source, re.IGNORECASE)
-                if match:
-                    level = int(match.group(1))
-                    
-                # 2. Apply Custom Rules & Logic
-                if is_event:
-                    # Skip color-matching entirely for Event chests and use source text rules
-                    if "epic ancient squad" in full_text_lower:
-                        player = "Clan"
-                        level = 25
-                        chest_type = "event"
-                    elif "dark omens" in full_text_lower:
-                        level = 30
-                        chest_type = "event"
-                    elif "ragnarok" in full_text_lower:
-                        level = 25
-                        chest_type = "event"
-                    elif "olympus" in full_text_lower:
-                        level = 25
-                        chest_type = "event"
-                    elif "rise of ancients" in full_text_lower or "ancient" in full_text_lower:
-                        if level == 0:
-                            level = self.vision.get_ancient_chest_level(color_img_crop)
-                        chest_type = "event"
-                    elif "arena" in full_text_lower:
-                        level = 0
-                        chest_type = "common"
-                    elif "clan wealth" in full_text_lower:
-                        player = "Clan"
-                        # Dynamic level progression based on clan capacity
-                        idx = self.clan_wealth_counter % self.clan_wealth_capacity
-                        level = (idx + 1) * 5
-                        chest_type = "epic" if level == 30 else "common"
-                        self.clan_wealth_counter += 1
-                    else:
-                        # Catch-all for any other event chest
-                        if level == 0:
-                            level = 20
-                        chest_type = "event"
-                else:
-                    # Standard Non-Event Chests (Crypts, Citadels, etc)
-                    if "rare" in full_text_lower: 
-                        chest_type = "rare"
-                    elif "epic" in full_text_lower: 
-                        chest_type = "epic"
+                    for line_raw in chest_texts:
+                        line = line_raw.strip()
+                        line_lower = line.lower()
                         
-                    # No color fallback anymore; handled in fallback logic at the end.
-                        
-                    # Special modifier for Runic crypts
-                    if "runic" in full_text_lower:
-                        if level >= 40: level = 25
-                        elif level >= 35: level = 20
-                        elif level >= 30: level = 15
-                        elif level >= 25: level = 10
-                        elif level >= 20: level = 5
-                        chest_type = "common"
-                        
-                    if "tartaros" in full_text_lower:
-                        chest_type = "epic"
-                        
-                    if is_expired and level == 0:
-                        level = 20
-                        chest_type = "common"
-                    
-                if not title: title = "Unknown Chest"
-                if not player: player = "Unknown Player"
-                if not source: source = "Unknown Source"
-                
-                if is_expired:
-                    acquired_at = datetime.now(timezone.utc) - timedelta(days=1)
-                else:
-                    acquired_at = calculate_acquired_time(timer)
-                    
-                # Fallback logic if level is still 0
-                if level == 0 and player != "Clan":
-                    if player not in self.fallback_level_cache:
-                        fb = get_player_fallback_level(player)
-                        if fb > 0:
-                            self.fallback_level_cache[player] = fb
-                        else:
-                            self.fallback_level_cache[player] = 0
+                        if "delete" in line_lower:
+                            is_expired = True
+                            continue
                             
-                    if self.fallback_level_cache[player] > 0:
-                        level = self.fallback_level_cache[player]
+                        if "from:" in line_lower:
+                            player = line_lower.split("from:")[1].strip()
+                            idx = line_lower.find("from:") + 5
+                            player = line[idx:].strip()
+                            continue
+                            
+                        if "source:" in line_lower:
+                            idx = line_lower.find("source:") + 7
+                            source = line[idx:].strip()
+                            continue
+                            
+                        if "contains:" in line_lower:
+                            continue
+                            
+                        clean_line = line_lower.replace('i', '1').replace('l', '1').replace('o', '0').replace('z', '2').replace('b', 'h')
+                        time_matches = re.findall(r'\d+\s*[hms]', clean_line)
+                        if time_matches:
+                            timer = " ".join([m.replace(" ", "") for m in time_matches])
+                            continue
+                            
+                        if not title and len(line) >= 3:
+                            title = line
+                            
+                    if not title and not player and not source:
+                        continue
                         
-                pts = calculate_points(chest_type, level)
-                log_chest(player, title, chest_type, level, source, timer, acquired_at, pts)
-                
-            self.task_queue.task_done()
+                    # 1. Base Type Parsing
+                    chest_type = "common"
+                    source_lower = source.lower()
+                    title_lower = title.lower()
+                    full_text_lower = f"{source_lower} {title_lower}"
+                    
+                    is_event = False
+                    if "crypt" not in source_lower and "citadel" not in source_lower and not is_expired:
+                         is_event = True
+                         chest_type = "event"
+                         
+                    # Try to find explicit level via Regex
+                    level = 0
+                    match = re.search(r'Level (\d+)', source, re.IGNORECASE)
+                    if match:
+                         level = int(match.group(1))
+                        
+                    # 2. Apply Custom Rules & Logic
+                    if is_event:
+                        # Skip color-matching entirely for Event chests and use source text rules
+                        if "epic ancient squad" in full_text_lower:
+                            player = "Clan"
+                            level = 25
+                            chest_type = "event"
+                        elif "dark omens" in full_text_lower:
+                            level = 30
+                            chest_type = "event"
+                        elif "ragnarok" in full_text_lower:
+                            level = 25
+                            chest_type = "event"
+                        elif "trials of olympus" in full_text_lower:
+                            player = "Clan"
+                            level = 30
+                            chest_type = "event"
+                        elif "hermes" in full_text_lower:
+                            level = 25
+                            chest_type = "event"
+                        elif "rise of ancients" in source_lower or "rise of the ancients" in source_lower or "ancient" in source_lower:
+                            if level == 0:
+                                level = self.vision.get_ancient_chest_level(color_img_crop)
+                                if level == 0:
+                                    use_db_fallback = True
+                            chest_type = "event"
+                        elif "arena" in full_text_lower:
+                            level = 0
+                            chest_type = "common"
+                        elif "clan wealth" in full_text_lower:
+                            player = "Clan"
+                            # Dynamic level progression based on clan capacity
+                            idx = self.clan_wealth_counter % self.clan_wealth_capacity
+                            level = (idx + 1) * 5
+                            chest_type = "epic" if level == 30 else "common"
+                            self.clan_wealth_counter += 1
+                        else:
+                            # Catch-all for any other event chest
+                            if level == 0:
+                                level = 20
+                            chest_type = "event"
+                    else:
+                        # Standard Non-Event Chests (Crypts, Citadels, etc)
+                        if "rare" in full_text_lower: 
+                            chest_type = "rare"
+                        elif "epic" in full_text_lower: 
+                            chest_type = "epic"
+                            
+                        # No color fallback anymore; handled in fallback logic at the end.
+                            
+                        # Special modifier for Runic crypts
+                        if "runic" in full_text_lower:
+                            if level >= 40: level = 25
+                            elif level >= 35: level = 20
+                            elif level >= 30: level = 15
+                            elif level >= 25: level = 10
+                            elif level >= 20: level = 5
+                            chest_type = "common"
+                            
+                        if "tartaros" in full_text_lower:
+                            chest_type = "epic"
+                            
+                        if is_expired and level == 0:
+                            level = 20
+                            chest_type = "common"
+                        
+                    if not title: title = "Unknown Chest"
+                    if not player: player = "Unknown Player"
+                    if not source: source = "Unknown Source"
+                    
+                    if is_expired:
+                        acquired_at = datetime.now(timezone.utc) - timedelta(days=1)
+                    else:
+                        acquired_at = calculate_acquired_time(timer)
+                        
+                    # Fallback logic if level is still 0 (restricted to Rise of the Ancients only)
+                    if level == 0 and player != "Clan" and use_db_fallback:
+                        if player not in self.fallback_level_cache:
+                            fb = get_player_fallback_level(player)
+                            if fb > 0:
+                                self.fallback_level_cache[player] = fb
+                            else:
+                                self.fallback_level_cache[player] = 0
+                                
+                        if self.fallback_level_cache[player] > 0:
+                            level = self.fallback_level_cache[player]
+                            
+                    pts = calculate_points(chest_type, level)
+                    log_chest(player, title, chest_type, level, source, timer, acquired_at, pts)
+            except Exception as e:
+                import traceback
+                print(f"[OCR Worker] Error processing batch: {e}")
+                traceback.print_exc()
+            finally:
+                self.task_queue.task_done()
 
 if __name__ == "__main__":
     # Temporarily bypass the LogRedirector for the prompt so the user can see it!
