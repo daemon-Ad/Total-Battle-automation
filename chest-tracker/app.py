@@ -142,6 +142,7 @@ def get_leaderboard(
                 SELECT 
                     p.id,
                     p.username,
+                    p.is_active,
                     COUNT(*) FILTER (WHERE c.chest_type = 'common') AS common_chests,
                     COUNT(*) FILTER (WHERE c.chest_type = 'rare') AS rare_chests,
                     COUNT(*) FILTER (WHERE c.chest_type = 'epic') AS epic_chests,
@@ -153,12 +154,12 @@ def get_leaderboard(
             """
             
             if search:
-                query += " WHERE p.username ILIKE %s AND p.username NOT IN ('Unknown Player', 'Clan') AND p.is_active = TRUE"
+                query += " WHERE p.username ILIKE %s AND p.username NOT IN ('Unknown Player', 'Clan') AND (p.is_active = TRUE OR c.player_id IS NOT NULL)"
                 params.append(f"%{search}%")
             else:
-                query += " WHERE p.username NOT IN ('Unknown Player', 'Clan') AND p.is_active = TRUE"
+                query += " WHERE p.username NOT IN ('Unknown Player', 'Clan') AND (p.is_active = TRUE OR c.player_id IS NOT NULL)"
                 
-            query += " GROUP BY p.id, p.username"
+            query += " GROUP BY p.id, p.username, p.is_active"
             
             valid_sort_cols = ["username", "common_chests", "rare_chests", "epic_chests", "event_chests", "total_score", "pure_crypt_points"]
             if sort_by not in valid_sort_cols:
@@ -619,7 +620,7 @@ def download_normal_weekly_report(offset: int = 0):
             COALESCE(SUM(c.dynamic_points), 0) AS total_score
         FROM players p
         LEFT JOIN calculated_logs c ON p.id = c.player_id
-        WHERE p.is_active = TRUE AND p.username NOT IN ('Unknown Player', 'Clan')
+        WHERE p.username NOT IN ('Unknown Player', 'Clan') AND (p.is_active = TRUE OR c.player_id IS NOT NULL)
         GROUP BY p.username
         ORDER BY total_score DESC
     """
@@ -669,7 +670,7 @@ def download_pure_crypting_report(offset: int = 0):
             COALESCE(SUM(c.dynamic_points), 0) AS pure_score
         FROM players p
         LEFT JOIN calculated_logs c ON p.id = c.player_id
-        WHERE p.is_active = TRUE AND p.username NOT IN ('Unknown Player', 'Clan')
+        WHERE p.username NOT IN ('Unknown Player', 'Clan') AND (p.is_active = TRUE OR c.player_id IS NOT NULL)
         GROUP BY p.username
         ORDER BY pure_score DESC
     """
@@ -733,7 +734,7 @@ def get_event_participation(pattern: str, duration_days: float):
                 LEFT JOIN chest_logs c ON p.id = c.player_id 
                     AND (c.source ILIKE %s OR c.chest_title ILIKE %s)
                     AND c.acquired_at >= %s AND c.acquired_at <= %s
-                WHERE p.is_active = TRUE AND p.username NOT IN ('Unknown Player', 'Clan')
+                WHERE p.username NOT IN ('Unknown Player', 'Clan') AND (p.is_active = TRUE OR c.player_id IS NOT NULL)
                 GROUP BY p.username
                 ORDER BY p.username ASC
             """, (f"%{pattern}%", f"%{pattern}%", event_start, event_end))

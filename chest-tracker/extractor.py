@@ -436,12 +436,12 @@ class ChestExtractor:
                         elif "dark omens" in full_text_lower:
                             level = 30
                             chest_type = "event"
-                        elif "ragnarok" in full_text_lower:
+                        elif "jormungandr" in full_text_lower:
                             level = 25
                             chest_type = "event"
                         elif "trials of olympus" in full_text_lower:
                             player = "Clan"
-                            level = 30
+                            level = 35
                             chest_type = "event"
                         elif "hermes" in full_text_lower:
                             level = 25

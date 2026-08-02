@@ -321,11 +321,13 @@ async function loadPerformers() {
                         statusIcon = "<i class='bx bx-error' style='color: #92400e; font-size: 1.2rem;'></i>";
                     }
                     
+                    let pastMemberBadge = p.is_active === false ? ` <span style="font-size: 0.75rem; color: #f87171; background: rgba(239, 68, 68, 0.15); padding: 2px 6px; border-radius: 4px; font-weight: normal; margin-left: 4px;">Past Member</span>` : '';
+
                     const tr = document.createElement('tr');
                     tr.className = rowClass;
                     tr.innerHTML = `
                         <td>${index + 1}</td>
-                        <td><strong><a href="#" onclick="openPlayerHistory(${p.id}, '${p.username}'); return false;" style="color: inherit; text-decoration: underline; cursor: pointer;">${p.username}</a></strong></td>
+                        <td><strong><a href="#" onclick="openPlayerHistory(${p.id}, '${p.username}'); return false;" style="color: inherit; text-decoration: underline; cursor: pointer;">${p.username}</a></strong>${pastMemberBadge}</td>
                         <td>${formattedScore}</td>
                         <td>${statusIcon}</td>
                         <td>${totalChests}</td>
