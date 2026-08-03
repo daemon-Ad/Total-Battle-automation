@@ -75,5 +75,25 @@
     "city_icon": [
         92,
         2386
+    ],
+    "caravan_pin_icon": [
+        429,
+        2167
+    ],
+    "caravan_first_saved_location": [
+        530,
+        344
+    ],
+    "caravan_caravan_option": [
+        759,
+        1477
+    ],
+    "caravan_use_button": [
+        836,
+        612
+    ],
+    "help_logo": [
+        886,
+        2005
     ]
 }

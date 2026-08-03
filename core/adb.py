@@ -52,9 +52,16 @@ class ADBController:
             print("ERROR: adb screencap timed out!")
             return None
 
-    def tap(self, x, y, short_press=False, box_dims=None, custom_delay=None):
-        """Simulate a perfect human tap using Gaussian scatter, finger roll, and Log-Normal durations."""
+    def tap(self, x, y, short_press=False, box_dims=None, custom_delay=None, pure_tap=False):
+        """Simulate a perfect human tap using Gaussian scatter, finger roll, and Log-Normal durations.
+        If pure_tap is True, uses exact coordinates with 'input tap' instead of 'input swipe'."""
         
+        if pure_tap:
+            self._adb_command("shell", "input", "tap", str(x), str(y))
+            if custom_delay is not None:
+                time.sleep(custom_delay)
+            return
+
         # If we know the exact dimensions of the button, we map the Gaussian curve across the entire button surface.
         if box_dims:
             w, h = box_dims

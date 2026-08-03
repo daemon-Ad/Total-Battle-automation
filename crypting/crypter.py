@@ -332,7 +332,7 @@ class Crypter:
 if __name__ == "__main__":
     crypter = Crypter("moto-g51")
     # Take number of iterations from user if provided via CLI
-    iters = 200
+    iters = 40
     if len(sys.argv) > 1:
         iters = int(sys.argv[1])
     crypter.run_loop(iters)
