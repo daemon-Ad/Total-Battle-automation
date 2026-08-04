@@ -872,36 +872,74 @@ async function loadPerformers() {
     };
 
 
-    // --- Reports View Logic ---
-    const reportsWeekSelect = document.getElementById("reports-week-select");
-    if(reportsWeekSelect) reportsWeekSelect.addEventListener("change", loadReportsPreview);
+    
+    function getSelectedOffset() {
+        const activeView = document.querySelector('.view.active')?.id;
+        if (activeView === 'leaderboard-view') {
+            const sel = document.getElementById("leaderboard-week-select");
+            if (sel) return sel.value;
+        }
+        if (activeView === 'analytics-view') {
+            const sel = document.getElementById("analytics-week-select");
+            if (sel) return sel.value;
+        }
+        const reportsSel = document.getElementById("reports-week-select");
+        if (reportsSel) return reportsSel.value;
+        return "0";
+    }
 
-    window.triggerDirectDownload = function(url) {
-        const a = document.createElement('a');
-        a.href = url;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+    // --- Reports View Logic ---
+    window.downloadReport = async function(endpoint) {
+        const offset = getSelectedOffset();
+        const url = endpoint.includes('?') ? `${endpoint}&offset=${offset}` : `${endpoint}?offset=${offset}`;
+        
+        try {
+            const response = await fetch(url, {
+                headers: {'Authorization': 'Basic ' + btoa('Shanks:shanks123')}
+            });
+            if (!response.ok) {
+                alert(`Failed to download report (HTTP ${response.status})`);
+                return;
+            }
+            
+            const text = await response.text();
+            let filename = "report.txt";
+            const disposition = response.headers.get('Content-Disposition');
+            if (disposition && disposition.includes('filename=')) {
+                filename = disposition.split('filename=')[1].replace(/"/g, '').trim();
+            } else {
+                filename = endpoint.split('/').pop().replace(/[^a-z0-9_-]/gi, '_') + ".txt";
+            }
+            
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = filename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        } catch(e) {
+            console.error("Report download failed:", e);
+            alert("Report download failed: " + e.message);
+        }
     };
 
-    window.downloadBothWeeklyReports = function() {
-        const offset = document.getElementById("reports-week-select")?.value || "0";
-        window.triggerDirectDownload(`/api/reports/normal-weekly?offset=${offset}`);
-        setTimeout(() => {
-            window.triggerDirectDownload(`/api/reports/pure-crypting?offset=${offset}`);
+    window.downloadBothWeeklyReports = async function() {
+        await window.downloadReport('/api/reports/normal-weekly');
+        setTimeout(async () => {
+            await window.downloadReport('/api/reports/pure-crypting');
         }, 600);
     };
 
-    window.downloadReport = function(endpoint) {
-        const offset = document.getElementById("reports-week-select")?.value || "0";
-        window.triggerDirectDownload(`${endpoint}?offset=${offset}`);
-    };
-
     window.loadReportsPreview = async function() {
-        const offset = document.getElementById("reports-week-select")?.value || "0";
+        const offset = getSelectedOffset();
         try {
-            const response = await fetch(`/api/reports/preview?offset=${offset}`);
+            const response = await fetch(`/api/reports/preview?offset=${offset}`, {
+                headers: {'Authorization': 'Basic ' + btoa('Shanks:shanks123')}
+            });
             const result = await response.json();
             
             if (result.status === 'success') {
@@ -913,6 +951,9 @@ async function loadPerformers() {
             console.error("Failed to load reports preview:", e);
         }
     };
+
+    const reportsWeekSelect = document.getElementById("reports-week-select");
+    if(reportsWeekSelect) reportsWeekSelect.addEventListener("change", loadReportsPreview);
 
     function renderEventPreview(eventKey, eventData) {
         const infoEl = document.getElementById(`${eventKey}-window-info`);

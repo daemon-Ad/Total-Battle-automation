@@ -191,9 +191,9 @@
                     </div>
                     <div style="display: flex; gap: 10px; align-items: center;">
                         <select id="reports-week-select" class="btn-secondary" style="padding: 8px 12px; font-size: 0.9rem;">
-                            <option value="0">Current Week</option>
-                            <option value="1">Previous Week</option>
-                            <option value="2">2 Weeks Ago</option>
+                            <option value="0">Last Week (Completed)</option>
+                            <option value="1">2 Weeks Ago</option>
+                            <option value="2">3 Weeks Ago</option>
                         </select>
                         <button class="btn-primary" onclick="downloadBothWeeklyReports()"><i class='bx bx-download'></i> Download Both Weekly Reports</button>
                     </div>
@@ -243,7 +243,7 @@
                                 <tbody id="olympus-preview-body"><tr><td colspan="3">Loading...</td></tr></tbody>
                             </table>
                         </div>
-                        <button class="btn-secondary" style="width: 100%;" onclick="window.open('/api/reports/olympus-participation', '_blank')"><i class='bx bx-download'></i> Export (.txt)</button>
+                        <button class="btn-secondary" style="width: 100%;" onclick="downloadReport('/api/reports/olympus-participation')"><i class='bx bx-download'></i> Export (.txt)</button>
                     </div>
 
                     <!-- Event 2: Ragnarok -->
@@ -261,7 +261,7 @@
                                 <tbody id="ragnarok-preview-body"><tr><td colspan="3">Loading...</td></tr></tbody>
                             </table>
                         </div>
-                        <button class="btn-secondary" style="width: 100%;" onclick="window.open('/api/reports/ragnarok-participation', '_blank')"><i class='bx bx-download'></i> Export (.txt)</button>
+                        <button class="btn-secondary" style="width: 100%;" onclick="downloadReport('/api/reports/ragnarok-participation')"><i class='bx bx-download'></i> Export (.txt)</button>
                     </div>
 
                     <!-- Event 3: Rise of Ancients -->
@@ -279,7 +279,7 @@
                                 <tbody id="ancients-preview-body"><tr><td colspan="3">Loading...</td></tr></tbody>
                             </table>
                         </div>
-                        <button class="btn-secondary" style="width: 100%;" onclick="window.open('/api/reports/ancients-participation', '_blank')"><i class='bx bx-download'></i> Export (.txt)</button>
+                        <button class="btn-secondary" style="width: 100%;" onclick="downloadReport('/api/reports/ancients-participation')"><i class='bx bx-download'></i> Export (.txt)</button>
                     </div>
                 </div>
             </section>
@@ -297,7 +297,7 @@
                             <option value="2">2 Weeks Ago</option>
                             <option value="3">3 Weeks Ago</option>
                         </select>
-                        <button class="btn-primary" onclick="window.open('/api/reports/weekly', '_blank')"><i class='bx bx-download'></i> Report</button>
+                        <button class="btn-primary" onclick="downloadBothWeeklyReports()"><i class='bx bx-download'></i> Report</button>
                     </div>
                 </div>
                 <div class="analytics-inner">
@@ -399,7 +399,7 @@
                             <option value="1">Previous</option>
                             <option value="2">Offset 2</option>
                         </select>
-                        <button class="btn-primary" style="margin-left: 10px;" onclick="window.open('/api/reports/weekly', '_blank')"><i class='bx bx-download'></i> Report</button>
+                        <button class="btn-primary" style="margin-left: 10px;" onclick="downloadBothWeeklyReports()"><i class='bx bx-download'></i> Report</button>
                     </div>
                 </div>
                 <div class="toolbar glass-card">
@@ -758,7 +758,7 @@
         </div>
     </div>
 
-    <script src="/assets/app.js"></script>
+    <script src="/assets/app.js?v=1785775211"></script>
 
     <!-- Player History Modal -->
     <div class="modal-overlay hidden" id="player-history-modal">

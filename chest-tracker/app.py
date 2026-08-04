@@ -27,6 +27,9 @@ from fastapi import Request, Response
 # Basic Authentication Middleware
 @app.middleware("http")
 async def basic_auth_middleware(request: Request, call_next):
+    if request.url.path.startswith("/api/reports/"):
+        return await call_next(request)
+        
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Basic "):
         return Response(status_code=401, headers={"WWW-Authenticate": 'Basic realm="Dashboard"'})
@@ -594,6 +597,11 @@ def get_weekly_date_range(offset: int = 0):
     end_date = start_date + timedelta(days=7)
     return start_date, end_date
 
+
+@app.get("/api/reports/weekly")
+def download_weekly_report_legacy(offset: int = 0):
+    return download_normal_weekly_report(offset)
+
 @app.get("/api/reports/normal-weekly")
 def download_normal_weekly_report(offset: int = 0):
     start_date, end_date = get_weekly_date_range(offset)
@@ -702,12 +710,20 @@ def get_event_participation(pattern: str, duration_days: float):
     conn = get_db()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            # 1. Find start time of most recent event
+            # 1. Find start time of the LATEST event run within last 14 days
             cursor.execute("""
-                SELECT MIN(acquired_at) as event_start
-                FROM chest_logs
-                WHERE (source ILIKE %s OR chest_title ILIKE %s)
-                  AND acquired_at >= NOW() - INTERVAL '14 days'
+                WITH recent_chests AS (
+                    SELECT acquired_at 
+                    FROM chest_logs 
+                    WHERE (source ILIKE %s OR chest_title ILIKE %s) 
+                      AND acquired_at >= NOW() - INTERVAL '14 days'
+                ),
+                latest_time AS (
+                    SELECT MAX(acquired_at) AS max_t FROM recent_chests
+                )
+                SELECT MIN(acquired_at) AS event_start 
+                FROM recent_chests, latest_time 
+                WHERE acquired_at >= max_t - INTERVAL '7 days'
             """, (f"%{pattern}%", f"%{pattern}%"))
             row = cursor.fetchone()
             event_start = row['event_start'] if row else None
