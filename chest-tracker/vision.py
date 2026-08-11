@@ -21,6 +21,7 @@ class VisionEngine:
         
         self._load_templates()
         self._load_ancient_templates()
+        self._load_dark_omens_templates()
 
     def _load_templates(self):
         """Pre-load commonly used templates."""
@@ -53,6 +54,25 @@ class VisionEngine:
                     pass
         else:
             print(f"Warning: Ancients directory {ancients_dir} not found.")
+
+    def _load_dark_omens_templates(self):
+        """Pre-load dark omens chest templates for exact image matching."""
+        # Note: The user mentioned the path is resource/images/dark-omens/level-20.png 
+        # relative to the project root (total-battle-automation).
+        dark_omens_dir = os.path.abspath(os.path.join(self.images_dir, "../../resource/images/dark-omens"))
+        self.dark_omens_templates = {}
+        if os.path.exists(dark_omens_dir):
+            for path in glob.glob(os.path.join(dark_omens_dir, "*.png")):
+                basename = os.path.basename(path)
+                level_str = basename.replace("level-", "").replace(".png", "")
+                try:
+                    level = int(level_str)
+                    img = cv2.imread(path, cv2.IMREAD_COLOR)
+                    self.dark_omens_templates[level] = img
+                except ValueError:
+                    pass
+        else:
+            print(f"Warning: Dark Omens directory {dark_omens_dir} not found.")
 
     def find_template(self, screen_input, template_name, threshold=0.8):
         """
@@ -155,6 +175,37 @@ class VisionEngine:
         if best_match_val > 0.6:
             return best_level
         return 0
+
+    def get_dark_omens_chest_level(self, chest_crop):
+        """
+        Use cv2.matchTemplate to find if it matches level 20 Dark Omens chest.
+        If it matches, returns 20, else returns 35.
+        """
+        if not self.dark_omens_templates or chest_crop is None or chest_crop.size == 0:
+            return 35 # fallback to 35 if we can't test
+            
+        # We only have a level 20 template
+        if 20 not in self.dark_omens_templates:
+            return 35
+            
+        ref_img = self.dark_omens_templates[20]
+        if ref_img is None or ref_img.size == 0:
+            return 35
+            
+        best_match_val = -1
+        h, w = ref_img.shape[:2]
+        try:
+            resized_crop = cv2.resize(chest_crop, (w, h))
+            res = cv2.matchTemplate(resized_crop, ref_img, cv2.TM_CCOEFF_NORMED)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+            best_match_val = max_val
+        except Exception as e:
+            pass
+            
+        # Confidence threshold
+        if best_match_val > 0.6:
+            return 20
+        return 35
 
     def parse_chest_block(self, screen_path, block_rect):
         """

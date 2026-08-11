@@ -433,6 +433,10 @@ class ChestExtractor:
                             player = "Clan"
                             level = 25
                             chest_type = "event"
+                        elif "summoning dark omens" in full_text_lower:
+                            if level == 0:
+                                level = self.vision.get_dark_omens_chest_level(color_img_crop)
+                            chest_type = "event"
                         elif "dark omens" in full_text_lower:
                             level = 30
                             chest_type = "event"

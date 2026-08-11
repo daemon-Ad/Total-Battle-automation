@@ -191,7 +191,8 @@
                     </div>
                     <div style="display: flex; gap: 10px; align-items: center;">
                         <select id="reports-week-select" class="btn-secondary" style="padding: 8px 12px; font-size: 0.9rem;">
-                            <option value="0">Last Week (Completed)</option>
+                            <option value="-1">Current Week (Ongoing)</option>
+                            <option value="0" selected>Last Week (Completed)</option>
                             <option value="1">2 Weeks Ago</option>
                             <option value="2">3 Weeks Ago</option>
                         </select>
@@ -281,6 +282,32 @@
                         </div>
                         <button class="btn-secondary" style="width: 100%;" onclick="downloadReport('/api/reports/ancients-participation')"><i class='bx bx-download'></i> Export (.txt)</button>
                     </div>
+
+                    <!-- Non-Performers -->
+                    <div class="glass-card" style="padding: 1.5rem; border-left: 4px solid #ef4444;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3 style="display: flex; align-items: center; gap: 8px;">
+                                <i class='bx bx-user-x' style="color: #ef4444;"></i> Non-Performers
+                            </h3>
+                            <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">Last 2 Weeks</span>
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;" id="non-performers-timeframe">Loading timeframe...</p>
+                        <div class="table-wrapper" style="max-height: 350px; overflow-y: auto; margin-bottom: 1rem;">
+                            <table class="data-table" style="width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Player</th>
+                                        <th>Points (14d)</th>
+                                        <th>Missing Events</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="non-performers-body">
+                                    <tr><td colspan="2">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <button class="btn-secondary" style="width: 100%;" onclick="downloadReport('/api/reports/non-performers/download')"><i class='bx bx-download'></i> Export Names (.txt)</button>
+                    </div>
                 </div>
             </section>
 
@@ -308,7 +335,7 @@
                         <p class="subtitle">Weekly points progression</p>
                         <div class="progress-container">
                             <div class="progress-labels">
-                                <span class="progress-title">CLAN WEEKLY PROGRESS</span>
+                                <span class="progress-title">CLAN WEEKLY PROGRESS (TOTAL)</span>
                                 <span class="progress-percent" id="target-percent">0%</span>
                             </div>
                             <div class="progress-stats">
@@ -316,6 +343,19 @@
                             </div>
                             <div class="progress-bar-bg">
                                 <div class="progress-bar-fill" id="target-bar"></div>
+                            </div>
+                        </div>
+
+                        <div class="progress-container" style="margin-top: 1.5rem;">
+                            <div class="progress-labels">
+                                <span class="progress-title">PURE CRYPTS PROGRESS</span>
+                                <span class="progress-percent" id="pure-target-percent">0%</span>
+                            </div>
+                            <div class="progress-stats">
+                                <span id="pure-target-text">0 / 0 points</span>
+                            </div>
+                            <div class="progress-bar-bg">
+                                <div class="progress-bar-fill" id="pure-target-bar" style="background: linear-gradient(90deg, #10b981 0%, #34d399 100%);"></div>
                             </div>
                         </div>
                     </div>
@@ -758,7 +798,7 @@
         </div>
     </div>
 
-    <script src="/assets/app.js?v=1785775211"></script>
+    <script src="/assets/app.js?v=1785775220"></script>
 
     <!-- Player History Modal -->
     <div class="modal-overlay hidden" id="player-history-modal">

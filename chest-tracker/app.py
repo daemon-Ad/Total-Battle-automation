@@ -452,13 +452,23 @@ def get_analytics(offset: int = 0):
                             WHEN chest_type IN ('epic', 'event') THEN
                                 CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 5 WHEN 15 THEN 10 WHEN 20 THEN 25 WHEN 25 THEN 50 WHEN 30 THEN 80 WHEN 35 THEN 140 ELSE 0 END
                             ELSE 0
-                        END as dynamic_points
+                        END as dynamic_points,
+                        CASE 
+                            WHEN chest_type = 'common' THEN 
+                                CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 15 WHEN 25 THEN 30 WHEN 30 THEN 60 ELSE 0 END
+                            WHEN chest_type = 'rare' THEN
+                                CASE chest_level WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 20 WHEN 25 THEN 35 WHEN 30 THEN 65 ELSE 0 END
+                            WHEN chest_type = 'epic' THEN
+                                CASE chest_level WHEN 5 THEN 0 WHEN 10 THEN 5 WHEN 15 THEN 10 WHEN 20 THEN 25 WHEN 25 THEN 50 WHEN 30 THEN 80 WHEN 35 THEN 140 ELSE 0 END
+                            ELSE 0
+                        END as pure_points
                     FROM chest_logs
                     WHERE acquired_at >= %s AND acquired_at < %s
                 )
                 SELECT 
                     p.username,
                     COALESCE(SUM(c.dynamic_points), 0) AS total_score,
+                    COALESCE(SUM(c.pure_points), 0) AS pure_score,
                     COUNT(c.player_id) as chests
                 FROM players p
                 LEFT JOIN calculated_logs c ON p.id = c.player_id
@@ -470,6 +480,7 @@ def get_analytics(offset: int = 0):
             player_stats = cursor.fetchall()
             
             total_score = sum(p['total_score'] for p in player_stats)
+            total_pure_score = sum(p['pure_score'] for p in player_stats)
             total_chests = sum(p['chests'] for p in player_stats)
             
             known_players = [p for p in player_stats if p['username'] not in ('Unknown Player', 'Clan')]
@@ -555,6 +566,7 @@ def get_analytics(offset: int = 0):
                     "week_label": week_label,
                     "targets": {
                         "total_score": total_score,
+                        "total_pure_score": total_pure_score,
                         "total_chests": total_chests,
                         "total_goal": total_goal
                     },
@@ -702,34 +714,28 @@ def download_pure_crypting_report(offset: int = 0):
     return PlainTextResponse(content="\n".join(lines), headers={"Content-Disposition": f'attachment; filename="{file_name}"'})
 
 
-def get_event_participation(pattern: str, duration_days: float):
+def get_event_participation(pattern: str, duration_days: float, offset: int = 0):
     """
-    Finds the start time of the most recent event occurrence (last 14 days) matching pattern,
-    defines window [start, start + duration_days], and returns participation status per active player.
+    Finds if players participated in an event matching the pattern during the specified week.
+    Returns participation status per active player.
     """
     conn = get_db()
+    start_date, end_date = get_weekly_date_range(offset)
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            # 1. Find start time of the LATEST event run within last 14 days
+            # 1. Find actual start and end times for UI display purposes
             cursor.execute("""
-                WITH recent_chests AS (
-                    SELECT acquired_at 
-                    FROM chest_logs 
-                    WHERE (source ILIKE %s OR chest_title ILIKE %s) 
-                      AND acquired_at >= NOW() - INTERVAL '14 days'
-                ),
-                latest_time AS (
-                    SELECT MAX(acquired_at) AS max_t FROM recent_chests
-                )
-                SELECT MIN(acquired_at) AS event_start 
-                FROM recent_chests, latest_time 
-                WHERE acquired_at >= max_t - INTERVAL '7 days'
-            """, (f"%{pattern}%", f"%{pattern}%"))
+                SELECT MIN(acquired_at) AS event_start, MAX(acquired_at) AS event_end
+                FROM chest_logs 
+                WHERE (source ILIKE %s OR chest_title ILIKE %s) 
+                  AND acquired_at >= %s AND acquired_at < %s
+            """, (f"%{pattern}%", f"%{pattern}%", start_date, end_date))
             row = cursor.fetchone()
             event_start = row['event_start'] if row else None
+            event_end_actual = row['event_end'] if row else None
             
             if not event_start:
-                # No event recorded in last 14 days
+                # No event recorded in this week
                 cursor.execute("SELECT username FROM players WHERE is_active = TRUE AND username NOT IN ('Unknown Player', 'Clan') ORDER BY username ASC")
                 players = cursor.fetchall()
                 return {
@@ -739,9 +745,7 @@ def get_event_participation(pattern: str, duration_days: float):
                     "data": [{"username": p['username'], "participated": "No", "chest_count": 0} for p in players]
                 }
                 
-            event_end = event_start + timedelta(days=duration_days)
-            
-            # 2. Get player participation inside this window
+            # 2. Get player participation inside the ENTIRE week
             cursor.execute("""
                 SELECT 
                     p.username,
@@ -749,11 +753,11 @@ def get_event_participation(pattern: str, duration_days: float):
                 FROM players p
                 LEFT JOIN chest_logs c ON p.id = c.player_id 
                     AND (c.source ILIKE %s OR c.chest_title ILIKE %s)
-                    AND c.acquired_at >= %s AND c.acquired_at <= %s
+                    AND c.acquired_at >= %s AND c.acquired_at < %s
                 WHERE p.username NOT IN ('Unknown Player', 'Clan') AND (p.is_active = TRUE OR c.player_id IS NOT NULL)
                 GROUP BY p.username
                 ORDER BY p.username ASC
-            """, (f"%{pattern}%", f"%{pattern}%", event_start, event_end))
+            """, (f"%{pattern}%", f"%{pattern}%", start_date, end_date))
             results = cursor.fetchall()
             
             data = []
@@ -768,7 +772,7 @@ def get_event_participation(pattern: str, duration_days: float):
             return {
                 "event_name": pattern,
                 "event_start": event_start.isoformat() if isinstance(event_start, datetime) else str(event_start),
-                "event_end": event_end.isoformat() if isinstance(event_end, datetime) else str(event_end),
+                "event_end": event_end_actual.isoformat() if isinstance(event_end_actual, datetime) else str(event_end_actual),
                 "data": data
             }
     finally:
@@ -776,8 +780,8 @@ def get_event_participation(pattern: str, duration_days: float):
 
 
 @app.get("/api/reports/olympus-participation")
-def download_olympus_report():
-    part = get_event_participation("Hermes", duration_days=5.0)
+def download_hermes_report(offset: int = 0):
+    part = get_event_participation("Hermes", duration_days=5.0, offset=offset)
     lines = ["Olympus Store (Hermes) Participation Report", "="*50]
     if part["event_start"]:
         lines.append(f"Event Window: {part['event_start'][:16]} to {part['event_end'][:16]}\n")
@@ -793,8 +797,8 @@ def download_olympus_report():
 
 
 @app.get("/api/reports/ragnarok-participation")
-def download_ragnarok_report():
-    part = get_event_participation("Jormungandr", duration_days=2.0)
+def download_ragnarok_report(offset: int = 0):
+    part = get_event_participation("Jormungandr", duration_days=2.0, offset=offset)
     lines = ["Ragnarok (Jormungandr) Participation Report", "="*50]
     if part["event_start"]:
         lines.append(f"Event Window: {part['event_start'][:16]} to {part['event_end'][:16]}\n")
@@ -810,8 +814,8 @@ def download_ragnarok_report():
 
 
 @app.get("/api/reports/ancients-participation")
-def download_ancients_report():
-    part = get_event_participation("ancients", duration_days=1.0)
+def download_ancients_report(offset: int = 0):
+    part = get_event_participation("ancients", duration_days=1.0, offset=offset)
     lines = ["Rise of Ancients Participation Report", "="*50]
     if part["event_start"]:
         lines.append(f"Event Window: {part['event_start'][:16]} to {part['event_end'][:16]}\n")
@@ -826,13 +830,103 @@ def download_ancients_report():
     return PlainTextResponse(content="\n".join(lines), headers={"Content-Disposition": 'attachment; filename="ancients_participation.txt"'})
 
 
+@app.get("/api/reports/non-performers")
+def get_non_performers_report():
+    conn = get_db()
+    
+    query = """
+        WITH recent_chests AS (
+            SELECT player_id, source, chest_title, chest_type, chest_level
+            FROM chest_logs
+            WHERE acquired_at >= NOW() - INTERVAL '14 days'
+        ),
+        player_first_chest AS (
+            SELECT player_id, MIN(acquired_at) as first_chest_time
+            FROM chest_logs
+            GROUP BY player_id
+        ),
+        player_stats AS (
+            SELECT 
+                p.username,
+                -- Pure Crypting score (No Event Chests)
+                COALESCE(SUM(
+                    CASE WHEN c.chest_type = 'common' THEN 
+                        CASE c.chest_level WHEN 5 THEN 0 WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 15 WHEN 25 THEN 30 WHEN 30 THEN 60 ELSE 0 END
+                    WHEN c.chest_type = 'rare' THEN
+                        CASE c.chest_level WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 20 WHEN 25 THEN 35 WHEN 30 THEN 65 ELSE 0 END
+                    WHEN c.chest_type = 'epic' THEN
+                        CASE c.chest_level WHEN 5 THEN 0 WHEN 10 THEN 5 WHEN 15 THEN 10 WHEN 20 THEN 25 WHEN 25 THEN 50 WHEN 30 THEN 80 WHEN 35 THEN 140 ELSE 0 END
+                    ELSE 0 END
+                ), 0) AS pure_score,
+                
+                -- Total Score (Includes Event Chests)
+                COALESCE(SUM(
+                    CASE WHEN c.chest_type = 'common' THEN 
+                        CASE c.chest_level WHEN 5 THEN 0 WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 15 WHEN 25 THEN 30 WHEN 30 THEN 60 ELSE 0 END
+                    WHEN c.chest_type = 'rare' THEN
+                        CASE c.chest_level WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 20 WHEN 25 THEN 35 WHEN 30 THEN 65 ELSE 0 END
+                    WHEN c.chest_type IN ('epic', 'event') THEN
+                        CASE c.chest_level WHEN 5 THEN 0 WHEN 10 THEN 5 WHEN 15 THEN 10 WHEN 20 THEN 25 WHEN 25 THEN 50 WHEN 30 THEN 80 WHEN 35 THEN 140 ELSE 0 END
+                    ELSE 0 END
+                ), 0) AS total_score,
+                
+                -- Event participation counts
+                COUNT(*) FILTER (WHERE c.source ILIKE '%%Jormungandr%%' OR c.chest_title ILIKE '%%Jormungandr%%') AS ragnarok_count,
+                COUNT(*) FILTER (WHERE c.source ILIKE '%%Hermes%%' OR c.chest_title ILIKE '%%Hermes%%') AS olympus_count,
+                COUNT(*) FILTER (WHERE c.source ILIKE '%%ancients%%' OR c.chest_title ILIKE '%%ancients%%') AS ancients_count
+            FROM players p
+            LEFT JOIN recent_chests c ON p.id = c.player_id
+            LEFT JOIN player_first_chest pfc ON p.id = pfc.player_id
+            WHERE p.username NOT IN ('Unknown Player', 'Clan') 
+              AND p.is_active = TRUE
+              AND p.id NOT IN (15, 20, 113)
+              AND (pfc.first_chest_time < (NOW() - INTERVAL '14 days') OR pfc.first_chest_time IS NULL)
+            GROUP BY p.id, p.username
+        )
+        SELECT username, pure_score, total_score, ragnarok_count, olympus_count, ancients_count
+        FROM player_stats
+        WHERE total_score < ((SELECT value::int FROM settings WHERE key = 'weekly_goal') * 2)
+        ORDER BY total_score ASC, olympus_count ASC, ancients_count ASC, ragnarok_count ASC, username ASC
+        LIMIT 10;
+    """
+    
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(query)
+            results = cursor.fetchall()
+            
+            from datetime import datetime, timedelta
+            start_time = datetime.now() - timedelta(days=14)
+            timeframe_str = f"{start_time.strftime('%d %b %Y')} - {datetime.now().strftime('%d %b %Y')}"
+            
+            return {"status": "success", "data": results, "timeframe": timeframe_str}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    finally:
+        conn.close()
+
+@app.get("/api/reports/non-performers/download")
+def download_non_performers_report():
+    data = get_non_performers_report()
+    if data.get("status") != "success":
+        return PlainTextResponse("Error generating report", status_code=500)
+        
+    lines = [f"Non-Performers Report: {data['timeframe']}", "="*50 + "\n"]
+    lines.append("Players to review/remove (ordered by worst performance):")
+    lines.append("-" * 30)
+    for row in data["data"]:
+        lines.append(row['username'])
+        
+    return PlainTextResponse(content="\n".join(lines), headers={"Content-Disposition": 'attachment; filename="non_performers.txt"'})
+
+
 @app.get("/api/reports/preview")
 def get_reports_preview(offset: int = 0):
     """Provides JSON preview data for all reports to display on the Reports Page."""
     start_date, end_date = get_weekly_date_range(offset)
-    olympus = get_event_participation("Hermes", 5.0)
-    ragnarok = get_event_participation("Jormungandr", 2.0)
-    ancients = get_event_participation("ancients", 1.0)
+    olympus = get_event_participation("Hermes", 5.0, offset=offset)
+    ragnarok = get_event_participation("Jormungandr", 2.0, offset=offset)
+    ancients = get_event_participation("ancients", 1.0, offset=offset)
     
     return {
         "status": "success",

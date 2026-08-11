@@ -660,6 +660,14 @@ async function loadPerformers() {
     
         document.getElementById('target-text').textContent = `${analyticsData.targets.total_score} / ${analyticsData.targets.total_goal} points`;
         document.getElementById('target-bar').style.width = Math.min(targetPercentStr, 100) + '%';
+        
+        // Pure Crypts Progress
+        const pureTargetPercentStr = analyticsData.targets.total_goal > 0 
+            ? ((analyticsData.targets.total_pure_score / analyticsData.targets.total_goal) * 100).toFixed(0) 
+            : 0;
+        document.getElementById('pure-target-percent').textContent = pureTargetPercentStr + '%';
+        document.getElementById('pure-target-text').textContent = `${analyticsData.targets.total_pure_score} / ${analyticsData.targets.total_goal} points`;
+        document.getElementById('pure-target-bar').style.width = Math.min(pureTargetPercentStr, 100) + '%';
 
         // 2. Summary
         document.getElementById('needs-attention-count').textContent = analyticsData.summary.needs_attention_count;
@@ -947,6 +955,9 @@ async function loadPerformers() {
                 renderEventPreview("ragnarok", result.ragnarok);
                 renderEventPreview("ancients", result.ancients);
             }
+            
+            // Also load non-performers
+            await loadNonPerformers();
         } catch(e) {
             console.error("Failed to load reports preview:", e);
         }
@@ -989,4 +1000,48 @@ async function loadPerformers() {
             `;
             tbody.appendChild(tr);
         });
+    }
+
+    async function loadNonPerformers() {
+        try {
+            const response = await fetch(`/api/reports/non-performers`, {
+                headers: {'Authorization': 'Basic ' + btoa('Shanks:shanks123')}
+            });
+            const result = await response.json();
+            
+            const tbody = document.getElementById('non-performers-body');
+            const timeframeInfo = document.getElementById('non-performers-timeframe');
+            if(!tbody || !timeframeInfo) return;
+            
+            if (result.status === 'success') {
+                timeframeInfo.textContent = result.timeframe;
+                tbody.innerHTML = '';
+                
+                if (!result.data || result.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="2">No non-performers found! 🎉</td></tr>';
+                    return;
+                }
+                
+                result.data.forEach(player => {
+                    const tr = document.createElement('tr');
+                    let missingHtml = [];
+                    if(player.olympus_count === 0) missingHtml.push(`<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 2px 6px; font-size: 0.75rem;">Olympus</span>`);
+                    if(player.ancients_count === 0) missingHtml.push(`<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 2px 6px; font-size: 0.75rem;">Ancients</span>`);
+                    if(player.ragnarok_count === 0) missingHtml.push(`<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 2px 6px; font-size: 0.75rem;">Ragnarok</span>`);
+                    
+                    let displayHtml = missingHtml.length > 0 ? missingHtml.join(" ") : `<span style="color: #10b981; font-size: 0.8rem;">None (Just points < limit)</span>`;
+                    
+                    tr.innerHTML = `
+                        <td><strong>${player.username}</strong></td>
+                        <td>${player.total_score}</td>
+                        <td>${displayHtml}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                tbody.innerHTML = `<tr><td colspan="2" style="color: red;">Error: ${result.message}</td></tr>`;
+            }
+        } catch(e) {
+            console.error("Failed to load non-performers:", e);
+        }
     }
