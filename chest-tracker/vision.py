@@ -57,20 +57,29 @@ class VisionEngine:
 
     def _load_dark_omens_templates(self):
         """Pre-load dark omens chest templates for exact image matching."""
-        # Note: The user mentioned the path is resource/images/dark-omens/level-20.png 
-        # relative to the project root (total-battle-automation).
         dark_omens_dir = os.path.abspath(os.path.join(self.images_dir, "../../resource/images/dark-omens"))
         self.dark_omens_templates = {}
         if os.path.exists(dark_omens_dir):
-            for path in glob.glob(os.path.join(dark_omens_dir, "*.png")):
-                basename = os.path.basename(path)
-                level_str = basename.replace("level-", "").replace(".png", "")
-                try:
-                    level = int(level_str)
-                    img = cv2.imread(path, cv2.IMREAD_COLOR)
-                    self.dark_omens_templates[level] = img
-                except ValueError:
-                    pass
+            # Pick up both .png and .jpeg/.jpg
+            patterns = [
+                os.path.join(dark_omens_dir, "*.png"),
+                os.path.join(dark_omens_dir, "*.jpeg"),
+                os.path.join(dark_omens_dir, "*.jpg"),
+            ]
+            for pattern in patterns:
+                for path in glob.glob(pattern):
+                    basename = os.path.basename(path)
+                    # Strip any extension: level-20.png -> 20, level-25.jpeg -> 25
+                    name_no_ext = os.path.splitext(basename)[0]  # e.g. "level-20"
+                    level_str = name_no_ext.replace("level-", "")
+                    try:
+                        level = int(level_str)
+                        img = cv2.imread(path, cv2.IMREAD_COLOR)
+                        if img is not None:
+                            self.dark_omens_templates[level] = img
+                            print(f"Loaded Dark Omens template: level {level} from {basename}")
+                    except ValueError:
+                        pass
         else:
             print(f"Warning: Dark Omens directory {dark_omens_dir} not found.")
 
@@ -149,10 +158,7 @@ class VisionEngine:
             
         best_level = 0
         best_match_val = -1
-        
-        # We need to resize either the crop or the template to match each other.
-        # Assuming they are roughly the same size if cropped identically, 
-        # but let's resize the crop to match each template just to be safe.
+        all_scores = {}
         
         for level, ref_img in self.ancient_templates.items():
             if ref_img is None or ref_img.size == 0:
@@ -160,51 +166,62 @@ class VisionEngine:
             
             h, w = ref_img.shape[:2]
             try:
-                # Resize crop to exact template size for matchTemplate
                 resized_crop = cv2.resize(chest_crop, (w, h))
                 res = cv2.matchTemplate(resized_crop, ref_img, cv2.TM_CCOEFF_NORMED)
                 min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+                all_scores[level] = round(max_val, 3)
                 
                 if max_val > best_match_val:
                     best_match_val = max_val
                     best_level = level
             except Exception as e:
                 pass
-                
-        # Confidence threshold (e.g. 0.6)
-        if best_match_val > 0.6:
+        
+        print(f"[Ancients] Template scores: {all_scores} | Best: level={best_level} score={best_match_val:.3f}")
+        
+        # Confidence threshold — 0.45 is intentionally lenient since we always
+        # pick the BEST match among all templates; we just want to exclude
+        # completely unrelated crops.
+        if best_match_val > 0.45:
             return best_level
         return 0
 
     def get_dark_omens_chest_level(self, chest_crop):
         """
-        Use cv2.matchTemplate to find if it matches level 20 Dark Omens chest.
-        If it matches, returns 20, else returns 35.
+        Compare the chest image crop against all Dark Omens templates (level 20, 25).
+        Returns the best-matching level, or 35 if none match above the threshold.
+        
+        Strategy: resize the chest_crop UP to each template's size so we always
+        compare at full template resolution — this avoids losing detail when
+        the in-game crop is smaller than the reference image.
         """
         if not self.dark_omens_templates or chest_crop is None or chest_crop.size == 0:
-            return 35 # fallback to 35 if we can't test
-            
-        # We only have a level 20 template
-        if 20 not in self.dark_omens_templates:
-            return 35
-            
-        ref_img = self.dark_omens_templates[20]
-        if ref_img is None or ref_img.size == 0:
-            return 35
-            
+            return 35  # fallback
+
+        best_level = -1
         best_match_val = -1
-        h, w = ref_img.shape[:2]
-        try:
-            resized_crop = cv2.resize(chest_crop, (w, h))
-            res = cv2.matchTemplate(resized_crop, ref_img, cv2.TM_CCOEFF_NORMED)
-            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
-            best_match_val = max_val
-        except Exception as e:
-            pass
-            
-        # Confidence threshold
+
+        for level, ref_img in self.dark_omens_templates.items():
+            if ref_img is None or ref_img.size == 0:
+                continue
+
+            h, w = ref_img.shape[:2]
+            try:
+                # Resize the crop UP to the template's size for a fair full-resolution compare
+                resized_crop = cv2.resize(chest_crop, (w, h))
+                res = cv2.matchTemplate(resized_crop, ref_img, cv2.TM_CCOEFF_NORMED)
+                _, max_val, _, _ = cv2.minMaxLoc(res)
+
+                if max_val > best_match_val:
+                    best_match_val = max_val
+                    best_level = level
+            except Exception:
+                pass
+
+        # Only trust the result if confidence is high enough
         if best_match_val > 0.6:
-            return 20
+            return best_level
+        # Neither template matched — this is a level 35 chest
         return 35
 
     def parse_chest_block(self, screen_path, block_rect):

@@ -143,6 +143,7 @@ async function loadPerformers() {
         const backBtn = document.getElementById('global-back-btn');
         if (viewId === 'home-view') {
             loadPerformers();
+            fetchTotalClanPoints();
             backBtn.style.display = 'none';
         } else {
             backBtn.style.display = 'flex';
@@ -154,6 +155,8 @@ async function loadPerformers() {
         if (viewId === 'management-view') fetchPlayers();
         if (viewId === 'settings-view') populateSettingsForm();
         if (viewId === 'feedback-view') fetchAllFeedback();
+        if (viewId === 'manual-entry-view') initManualEntryPage();
+        if (viewId === 'total-clan-points-view') fetchTotalClanPoints();
     }
 
     // --- Settings Logic ---
@@ -484,6 +487,7 @@ async function loadPerformers() {
         const searchQuery = document.getElementById('management-search').value.trim().toLowerCase();
         
         const filteredPlayers = allManagementPlayers.filter(p => {
+            if (p.username === 'Clan') return false;
             const matchesRank = filterRank === 'All' || p.rank === filterRank;
             const matchesSearch = !searchQuery || fuzzyMatch(searchQuery, p.username);
             return matchesRank && matchesSearch;
@@ -1043,5 +1047,305 @@ async function loadPerformers() {
             }
         } catch(e) {
             console.error("Failed to load non-performers:", e);
+        }
+    }
+
+    // --- MANUAL ENTRY LOGIC ---
+    let playersCache = [];
+    let manualEntryInitialized = false;
+    
+    async function fetchPlayersForManualEntry() {
+        if (playersCache.length > 0) return playersCache;
+        try {
+            const response = await fetch('/api/players', {
+                headers: {'Authorization': 'Basic ' + btoa('Shanks:shanks123')}
+            });
+            const result = await response.json();
+            if (result.status === 'success') {
+                playersCache = result.data;
+            }
+        } catch (e) {
+            console.error("Failed to fetch players:", e);
+        }
+        return playersCache;
+    }
+
+    function createManualChestRow() {
+        const row = document.createElement('div');
+        row.className = 'manual-chest-row';
+        row.style.cssText = 'display:flex; gap:10px; margin-bottom:10px; align-items:center; flex-wrap:wrap;';
+        
+        row.innerHTML = `
+            <select class="form-control chest-type" style="width:130px; flex-shrink:0;">
+                <option value="common">Common</option>
+                <option value="rare">Rare</option>
+                <option value="epic">Epic</option>
+                <option value="event">Event</option>
+            </select>
+            <select class="form-control chest-level" style="width:130px; flex-shrink:0;">
+                <!-- Populated dynamically -->
+            </select>
+            <input type="number" class="form-control chest-count" placeholder="# of Chests" style="width:120px; flex-shrink:0;" min="1" value="1">
+            <input type="text" class="form-control chest-title" placeholder="Title (optional)" style="flex:1; min-width:120px;">
+            <input type="text" class="form-control chest-source" placeholder="Source (optional)" style="flex:1; min-width:120px;">
+            <button class="btn-danger remove-chest-btn" title="Remove row" style="padding:8px 12px; flex-shrink:0;"><i class='bx bx-trash'></i></button>
+        `;
+        
+        const typeSelect = row.querySelector('.chest-type');
+        const levelSelect = row.querySelector('.chest-level');
+        
+        const levelsMap = {
+            common: [5, 10, 15, 20, 25],
+            rare: [10, 15, 20, 25, 30],
+            epic: [15, 20, 25, 30, 35],
+            event: [15, 20, 25, 30, 35]
+        };
+        
+        function updateLevels() {
+            const selectedType = typeSelect.value;
+            const levels = levelsMap[selectedType] || [];
+            
+            // Save the currently selected level if it exists in the new options
+            const currentLevel = levelSelect.value;
+            
+            levelSelect.innerHTML = '';
+            levels.forEach(lvl => {
+                const opt = document.createElement('option');
+                opt.value = lvl;
+                opt.textContent = `Level ${lvl}`;
+                levelSelect.appendChild(opt);
+            });
+            
+            if (levels.includes(Number(currentLevel))) {
+                levelSelect.value = currentLevel;
+            }
+        }
+        
+        typeSelect.addEventListener('change', updateLevels);
+        updateLevels(); // Initial population
+        
+        row.querySelector('.remove-chest-btn').addEventListener('click', () => row.remove());
+        return row;
+    }
+
+    async function createManualPlayerCard() {
+        const players = await fetchPlayersForManualEntry();
+        
+        const card = document.createElement('div');
+        card.className = 'manual-player-card';
+        card.style.cssText = 'background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.12); padding:1.5rem; border-radius:12px; margin-bottom:1.5rem;';
+        
+        const today = new Date().toISOString().split('T')[0];
+        
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem; gap:1rem; flex-wrap:wrap;">
+                <div style="display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap;">
+                    <div style="position:relative;">
+                        <label style="font-size:0.8rem; color:var(--text-secondary); display:block; margin-bottom:4px;">Player</label>
+                        <input type="text" class="form-control player-search-input" placeholder="Search player..." style="width:220px;" autocomplete="off">
+                        <input type="hidden" class="player-id-hidden">
+                        <div class="player-search-dropdown" style="display:none; position:absolute; top:100%; left:0; width:220px; max-height:200px; overflow-y:auto; background:var(--card-bg, #1e1e2e); border:1px solid rgba(255,255,255,0.15); border-radius:6px; z-index:999; box-shadow:0 4px 20px rgba(0,0,0,0.4);"></div>
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem; color:var(--text-secondary); display:block; margin-bottom:4px;">Date</label>
+                        <input type="date" class="form-control date-select" value="${today}" style="width:160px;">
+                    </div>
+                </div>
+                <button class="btn-danger remove-player-btn" title="Remove player" style="padding:8px 14px; align-self:flex-end;"><i class='bx bx-x'></i> Remove</button>
+            </div>
+            <hr style="border-color:rgba(255,255,255,0.08); margin-bottom:1rem;">
+            <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:8px; display:flex; gap:10px; padding:0 4px;">
+                <span style="width:130px;">Type</span>
+                <span style="width:130px;">Level</span>
+                <span style="width:120px;"># Chests</span>
+                <span style="flex:1;">Title (opt)</span>
+                <span style="flex:1;">Source (opt)</span>
+                <span style="width:44px;"></span>
+            </div>
+            <div class="chest-rows-container"></div>
+            <button class="btn-secondary add-chest-btn" style="margin-top:10px; padding:6px 14px; font-size:0.85rem;"><i class='bx bx-plus'></i> Add Chest Row</button>
+        `;
+        
+        const chestContainer = card.querySelector('.chest-rows-container');
+        chestContainer.appendChild(createManualChestRow());
+        
+        card.querySelector('.add-chest-btn').addEventListener('click', () => {
+            chestContainer.appendChild(createManualChestRow());
+        });
+        card.querySelector('.remove-player-btn').addEventListener('click', () => card.remove());
+
+        // --- Fuzzy player search ---
+        const searchInput = card.querySelector('.player-search-input');
+        const hiddenId    = card.querySelector('.player-id-hidden');
+        const dropdown    = card.querySelector('.player-search-dropdown');
+
+        function renderDropdown(query) {
+            const q = query.toLowerCase().trim();
+            const matches = q.length === 0
+                ? players
+                : players.filter(p => p.username.toLowerCase().includes(q));
+
+            dropdown.innerHTML = '';
+            if (matches.length === 0) {
+                dropdown.innerHTML = '<div style="padding:8px 12px; color:var(--text-secondary); font-size:0.85rem;">No players found</div>';
+                dropdown.style.display = 'block';
+                return;
+            }
+            matches.forEach(p => {
+                const item = document.createElement('div');
+                item.textContent = p.username;
+                item.style.cssText = 'padding:8px 12px; cursor:pointer; font-size:0.9rem; transition:background 0.15s;';
+                item.addEventListener('mouseenter', () => item.style.background = 'rgba(255,255,255,0.08)');
+                item.addEventListener('mouseleave', () => item.style.background = '');
+                item.addEventListener('mousedown', (e) => {
+                    e.preventDefault(); // prevent blur before click
+                    searchInput.value = p.username;
+                    hiddenId.value = p.id;
+                    dropdown.style.display = 'none';
+                });
+                dropdown.appendChild(item);
+            });
+            dropdown.style.display = 'block';
+        }
+
+        searchInput.addEventListener('input', () => renderDropdown(searchInput.value));
+        searchInput.addEventListener('focus', () => renderDropdown(searchInput.value));
+        searchInput.addEventListener('blur', () => {
+            // Short delay so mousedown on item fires first
+            setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+        });
+        
+        return card;
+    }
+
+    async function initManualEntryPage() {
+        const container = document.getElementById('manual-entry-container');
+        const addBtn = document.getElementById('add-manual-player-btn');
+        const submitBtn = document.getElementById('submit-manual-entry-btn');
+        if (!container) return;
+
+        // Only seed with one blank card on first visit
+        if (!manualEntryInitialized) {
+            manualEntryInitialized = true;
+            const card = await createManualPlayerCard();
+            container.appendChild(card);
+
+            addBtn.addEventListener('click', async () => {
+                const newCard = await createManualPlayerCard();
+                container.appendChild(newCard);
+            });
+
+            submitBtn.addEventListener('click', async () => {
+                const cards = container.querySelectorAll('.manual-player-card');
+                if (cards.length === 0) { alert('No player entries to submit.'); return; }
+                
+                const payload = { entries: [] };
+                for (const card of cards) {
+                    const playerId = card.querySelector('.player-id-hidden').value;
+                    const dateVal = card.querySelector('.date-select').value;
+                    
+                    if (!playerId) { alert('Please select a player for every entry.'); return; }
+                    if (!dateVal)  { alert('Please select a date for every entry.'); return; }
+                    
+                    const entry = { player_id: parseInt(playerId), date: dateVal, chests: [] };
+                    
+                    for (const row of card.querySelectorAll('.manual-chest-row')) {
+                        const cType  = row.querySelector('.chest-type').value;
+                        const cLevel = row.querySelector('.chest-level').value;
+                        const cCount = row.querySelector('.chest-count').value;
+                        const cTitle = row.querySelector('.chest-title').value.trim();
+                        const cSrc   = row.querySelector('.chest-source').value.trim();
+                        
+                        if (!cLevel) { alert('Please fill in a Chest Level for every row.'); return; }
+                        if (!cCount || parseInt(cCount) < 1) { alert('Count must be at least 1.'); return; }
+                        
+                        entry.chests.push({
+                            chest_type:  cType,
+                            chest_level: parseInt(cLevel),
+                            count:       parseInt(cCount),
+                            title:       cTitle,
+                            source:      cSrc
+                        });
+                    }
+                    if (entry.chests.length > 0) payload.entries.push(entry);
+                }
+                
+                if (payload.entries.length === 0) { alert('No chest rows to submit.'); return; }
+                
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="bx bx-loader bx-spin"></i> Submitting...';
+                try {
+                    const resp = await fetch('/api/manual-chests', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Basic ' + btoa('Shanks:shanks123')
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await resp.json();
+                    if (result.status === 'success') {
+                        alert('✅ Chests logged successfully!');
+                        // Reset form: clear container, seed fresh card
+                        container.innerHTML = '';
+                        manualEntryInitialized = false;
+                        initManualEntryPage();
+                    } else {
+                        alert('❌ Error: ' + result.message);
+                    }
+                } catch (e) {
+                    alert('❌ Submission failed: ' + e);
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bx bx-save"></i> Submit All Entries';
+                }
+            });
+        }
+    }
+
+
+    // Ensure clicking outside dropdown closes it
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.player-search-dropdown') && !e.target.closest('.player-search-input')) {
+            document.querySelectorAll('.player-search-dropdown').forEach(el => el.style.display = 'none');
+        }
+    });
+
+    // --- Total Clan Points ---
+    async function fetchTotalClanPoints() {
+        try {
+            const response = await fetch('/api/total-clan-points?timeframe=weekly&offset=0');
+            const result = await response.json();
+            if (result.status === 'success') {
+                const d = result.data;
+                
+                const formatK = (val) => val >= 1000 ? (val / 1000).toFixed(1) + 'K' : val.toLocaleString();
+
+                // 1. Update Homepage Header Widget
+                const homeCurrent = document.getElementById('home-tcp-current');
+                const homeTarget = document.getElementById('home-tcp-target');
+                const homePercent = document.getElementById('home-tcp-percent');
+                const homeBar = document.getElementById('home-tcp-bar');
+                const homeFormula = document.getElementById('home-tcp-formula');
+
+                if (homeCurrent) homeCurrent.textContent = formatK(d.total_points);
+                if (homeTarget) homeTarget.textContent = formatK(d.target_points);
+                if (homePercent) homePercent.textContent = `${d.progress_percent}%`;
+                if (homeBar) homeBar.style.width = `${Math.min(d.progress_percent, 100)}%`;
+                if (homeFormula) homeFormula.textContent = `Target: 110% of Goal (${d.weekly_goal} × 1.1 × ${d.active_players} players)`;
+
+                // 2. Update Total Clan Points View page
+                const tcpPoints = document.getElementById('tcp-weekly-points');
+                const tcpTarget = document.getElementById('tcp-target-points');
+                const tcpProgress = document.getElementById('tcp-progress-percent');
+                const tcpActive = document.getElementById('tcp-active-players');
+
+                if (tcpPoints) tcpPoints.textContent = d.total_points.toLocaleString();
+                if (tcpTarget) tcpTarget.textContent = d.target_points.toLocaleString();
+                if (tcpProgress) tcpProgress.textContent = `${d.progress_percent}%`;
+                if (tcpActive) tcpActive.textContent = d.active_players;
+            }
+        } catch (e) {
+            console.error('Failed to fetch total clan points:', e);
         }
     }

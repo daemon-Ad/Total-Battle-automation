@@ -367,6 +367,16 @@ class ChestExtractor:
                     results.sort(key=lambda r: r[0][0][1])
                     chest_texts = [text for bbox, text, conf in results]
                     
+                    # --- Pre-scan raw OCR blob for known chest title phrases ---
+                    # This is done BEFORE line-by-line parsing because the chest title
+                    # may be split across bounding boxes or get clobbered as the first line.
+                    raw_blob = " ".join(chest_texts).lower()
+                    omen_level_hint = 0  # 0 = unknown, 20 / 25 as detected
+                    if "minor omen" in raw_blob:
+                        omen_level_hint = 20
+                    elif "epic omen" in raw_blob or "major omen" in raw_blob:
+                        omen_level_hint = 25
+                    
                     # Parse the extracted text
                     title = ""
                     player = ""
@@ -374,6 +384,8 @@ class ChestExtractor:
                     timer = ""
                     is_expired = False
                     use_db_fallback = False
+                    next_is_player = False
+                    next_is_source = False
                     
                     for line_raw in chest_texts:
                         line = line_raw.strip()
@@ -381,17 +393,42 @@ class ChestExtractor:
                         
                         if "delete" in line_lower:
                             is_expired = True
+                            next_is_player = False
+                            next_is_source = False
                             continue
                             
+                        # Handle "From:" — value may be on the SAME line or the NEXT OCR box
                         if "from:" in line_lower:
-                            player = line_lower.split("from:")[1].strip()
+                            next_is_source = False
                             idx = line_lower.find("from:") + 5
-                            player = line[idx:].strip()
+                            value = line[idx:].strip()
+                            if value:
+                                player = value
+                                next_is_player = False
+                            else:
+                                next_is_player = True  # player name is the next OCR line
                             continue
                             
+                        if next_is_player:
+                            player = line
+                            next_is_player = False
+                            continue
+                            
+                        # Handle "Source:" — value may be on the SAME line or the NEXT OCR box
                         if "source:" in line_lower:
+                            next_is_player = False
                             idx = line_lower.find("source:") + 7
-                            source = line[idx:].strip()
+                            value = line[idx:].strip()
+                            if value:
+                                source = value
+                                next_is_source = False
+                            else:
+                                next_is_source = True  # source text is the next OCR line
+                            continue
+                            
+                        if next_is_source:
+                            source = line
+                            next_is_source = False
                             continue
                             
                         if "contains:" in line_lower:
@@ -413,7 +450,7 @@ class ChestExtractor:
                     chest_type = "common"
                     source_lower = source.lower()
                     title_lower = title.lower()
-                    full_text_lower = f"{source_lower} {title_lower}"
+                    full_text_lower = f"{source_lower} {title_lower} {raw_blob}"
                     
                     is_event = False
                     if "crypt" not in source_lower and "citadel" not in source_lower and not is_expired:
@@ -434,12 +471,21 @@ class ChestExtractor:
                             level = 25
                             chest_type = "event"
                         elif "summoning dark omens" in full_text_lower:
-                            if level == 0:
-                                level = self.vision.get_dark_omens_chest_level(color_img_crop)
+                            # Level determined by pre-scanned raw OCR blob (omen_level_hint):
+                            #   "Minor Omen Chest"             -> 20
+                            #   "Epic Omen Chest" / "Major..." -> 25
+                            #   unrecognised                   -> 35
+                            if omen_level_hint > 0:
+                                level = omen_level_hint
+                            else:
+                                level = 35
                             chest_type = "event"
                         elif "dark omens" in full_text_lower:
                             level = 30
                             chest_type = "event"
+                        elif "spoils of dread" in full_text_lower:
+                            level = 30
+                            chest_type = "epic"
                         elif "jormungandr" in full_text_lower:
                             level = 25
                             chest_type = "event"
@@ -450,11 +496,11 @@ class ChestExtractor:
                         elif "hermes" in full_text_lower:
                             level = 25
                             chest_type = "event"
+                        elif "ashen" in full_text_lower:
+                            level = 25
+                            chest_type = "event"
                         elif "rise of ancients" in source_lower or "rise of the ancients" in source_lower or "ancient" in source_lower:
-                            if level == 0:
-                                level = self.vision.get_ancient_chest_level(color_img_crop)
-                                if level == 0:
-                                    use_db_fallback = True
+                            level = 20
                             chest_type = "event"
                         elif "arena" in full_text_lower:
                             level = 0

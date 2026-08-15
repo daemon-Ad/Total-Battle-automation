@@ -78,6 +78,22 @@ class FeedbackCreate(BaseModel):
     username: str
     content: str
 
+from typing import List
+class ManualChestRow(BaseModel):
+    chest_type: str
+    chest_level: int
+    count: int
+    title: Optional[str] = ""
+    source: Optional[str] = ""
+
+class ManualPlayerEntry(BaseModel):
+    player_id: int
+    date: str
+    chests: List[ManualChestRow]
+
+class ManualEntryPayload(BaseModel):
+    entries: List[ManualPlayerEntry]
+
 # --- API ENDPOINTS ---
 
 @app.get("/api/leaderboard")
@@ -179,6 +195,86 @@ def get_leaderboard(
     finally:
         conn.close()
 
+@app.get("/api/total-clan-points")
+def get_total_clan_points(timeframe: str = "weekly", offset: int = 0):
+    """Get total points across all players for a timeframe."""
+    conn = get_db()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            from datetime import timedelta, date
+            import calendar
+            
+            today = date.today()
+            date_filter = ""
+            params = []
+            
+            if timeframe == "daily":
+                target = today - timedelta(days=offset)
+                date_filter = "WHERE c.acquired_at >= %s AND c.acquired_at < %s"
+                params.extend([target, target + timedelta(days=1)])
+            elif timeframe == "weekly":
+                start_of_week = today - timedelta(days=today.weekday())
+                target_start = start_of_week - timedelta(weeks=offset)
+                date_filter = "WHERE c.acquired_at >= %s AND c.acquired_at < %s"
+                params.extend([target_start, target_start + timedelta(days=7)])
+            elif timeframe == "monthly":
+                target_month = today.month - offset
+                target_year = today.year
+                while target_month <= 0:
+                    target_month += 12
+                    target_year -= 1
+                _, last_day = calendar.monthrange(target_year, target_month)
+                start_date = date(target_year, target_month, 1)
+                end_date = date(target_year, target_month, last_day) + timedelta(days=1)
+                date_filter = "WHERE c.acquired_at >= %s AND c.acquired_at < %s"
+                params.extend([start_date, end_date])
+                
+            query = f"""
+                WITH calculated_logs AS (
+                    SELECT 
+                        c.player_id,
+                        c.acquired_at,
+                        c.chest_type,
+                        c.points AS dynamic_points
+                    FROM chest_logs c
+                )
+                SELECT 
+                    COALESCE(SUM(c.dynamic_points), 0) AS total_points
+                FROM calculated_logs c
+                {date_filter}
+            """
+            
+            cursor.execute(query, params)
+            result = cursor.fetchone()
+            total_points = result["total_points"]
+
+            # Target calculation: weekly_goal * 1.1 * number of active players
+            cursor.execute("SELECT value FROM settings WHERE key = 'weekly_goal'")
+            setting_row = cursor.fetchone()
+            weekly_goal = int(setting_row['value']) if setting_row else 700
+
+            cursor.execute("SELECT COUNT(*) as cnt FROM players WHERE is_active = TRUE AND username NOT IN ('Unknown Player', 'Clan')")
+            cnt_row = cursor.fetchone()
+            active_players = cnt_row['cnt'] if cnt_row else 0
+
+            target_points = int(round(weekly_goal * 1.1 * active_players))
+            progress_percent = round((total_points / target_points) * 100, 1) if target_points > 0 else 0.0
+
+            return {
+                "status": "success", 
+                "data": {
+                    "total_points": total_points,
+                    "weekly_goal": weekly_goal,
+                    "active_players": active_players,
+                    "target_points": target_points,
+                    "progress_percent": progress_percent
+                }
+            }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    finally:
+        conn.close()
+
 @app.get("/api/players")
 def get_players():
     """List all players."""
@@ -187,7 +283,7 @@ def get_players():
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute("""
                 SELECT id, username, rank, is_active, guardsman_level, specialist_level, monster_level FROM players 
-                WHERE username NOT IN ('Unknown Player', 'Clan')
+                WHERE username != 'Unknown Player'
                 ORDER BY 
                     CASE rank
                         WHEN 'Leader' THEN 1
@@ -347,6 +443,37 @@ def get_player_chests(player_id: int):
         conn.close()
 
 
+@app.post("/api/manual-chests")
+def add_manual_chests(payload: ManualEntryPayload):
+    """Bulk insert manual chests."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            for entry in payload.entries:
+                # User requested 9:00 am hardcoded
+                target_datetime = f"{entry.date} 09:00:00"
+                for row in entry.chests:
+                    for _ in range(row.count):
+                        cursor.execute("""
+                            INSERT INTO chest_logs 
+                            (player_id, chest_title, chest_type, chest_level, source, acquired_at)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (
+                            entry.player_id, 
+                            row.title, 
+                            row.chest_type, 
+                            row.chest_level, 
+                            row.source, 
+                            target_datetime
+                        ))
+        conn.commit()
+        return {"status": "success", "message": "Chests added successfully"}
+    except Exception as e:
+        conn.rollback()
+        return {"status": "error", "message": str(e)}
+    finally:
+        conn.close()
+
 @app.get("/api/settings")
 def get_settings():
     """Retrieve application settings."""
@@ -472,7 +599,7 @@ def get_analytics(offset: int = 0):
                     COUNT(c.player_id) as chests
                 FROM players p
                 LEFT JOIN calculated_logs c ON p.id = c.player_id
-                WHERE p.is_active = TRUE
+                WHERE p.is_active = TRUE AND p.username NOT IN ('Unknown Player', 'Clan')
                 GROUP BY p.username
                 ORDER BY total_score DESC
             """

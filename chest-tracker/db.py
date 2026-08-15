@@ -117,6 +117,7 @@ def setup_schema():
             try:
                 cursor.execute("ALTER TABLE chest_logs ADD COLUMN IF NOT EXISTS acquired_at TIMESTAMPTZ;")
                 cursor.execute("ALTER TABLE chest_logs ADD COLUMN IF NOT EXISTS points INT DEFAULT 0;")
+                cursor.execute("ALTER TABLE chest_logs ADD COLUMN IF NOT EXISTS extracted_player_name TEXT;")
                 cursor.execute("""
                     ALTER TABLE chest_logs DROP CONSTRAINT IF EXISTS chest_logs_player_id_fkey;
                     ALTER TABLE chest_logs ADD CONSTRAINT chest_logs_player_id_fkey 
@@ -167,8 +168,8 @@ def setup_schema():
     finally:
         conn.close()
 
-def match_player(username: str) -> int:
-    """Get the player ID for a username using fuzzy matching. Fallback to 98 (Unknown Player)."""
+def match_player(username: str) -> tuple[int, str]:
+    """Get the player ID for a username using fuzzy matching. Fallback to 98 (Unknown Player). Returns (player_id, matched_name_or_none)."""
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
@@ -178,12 +179,12 @@ def match_player(username: str) -> int:
             # 1. Exact match
             for pid, p_name in players:
                 if username == p_name:
-                    return pid
+                    return pid, p_name
                     
             # 2. Lowercase match
             for pid, p_name in players:
                 if username.lower() == p_name.lower():
-                    return pid
+                    return pid, p_name
                     
             # 3. Fuzzy match
             names = [p_name for pid, p_name in players]
@@ -192,10 +193,10 @@ def match_player(username: str) -> int:
                 matched_name = matches[0]
                 for pid, p_name in players:
                     if p_name == matched_name:
-                        return pid
+                        return pid, p_name
                         
             # If nothing was found, return Unknown Player (98)
-            return 98
+            return 98, None
     except Exception as e:
         import sys
         print(f"Error matching player: {e}", file=sys.stderr)
@@ -205,14 +206,15 @@ def match_player(username: str) -> int:
 
 def log_chest(username: str, title: str, chest_type: str, level: int, source: str, timer_text: str, acquired_at=None, points=0):
     """Log a claimed chest into the database."""
-    player_id = match_player(username)
+    player_id, matched_name = match_player(username)
+    extracted_player_name = username if player_id == 98 else None
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
-                INSERT INTO chest_logs (player_id, chest_title, chest_type, chest_level, source, timer_text, acquired_at, points)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, (player_id, title, chest_type, level, source, timer_text, acquired_at, points))
+                INSERT INTO chest_logs (player_id, chest_title, chest_type, chest_level, source, timer_text, acquired_at, points, extracted_player_name)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (player_id, title, chest_type, level, source, timer_text, acquired_at, points, extracted_player_name))
         conn.commit()
         print(f"Logged chest: {title} (Level {level}) from {username} (Matched ID: {player_id})")
     except Exception as e:
