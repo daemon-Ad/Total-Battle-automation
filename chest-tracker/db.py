@@ -128,6 +128,48 @@ def setup_schema():
                 print(f"Warning on alter tables: {e}")
                 pass
 
+            # Create PL/pgSQL function & trigger for automatic points calculation on INSERT/UPDATE
+            cursor.execute("""
+                CREATE OR REPLACE FUNCTION calculate_chest_points(p_type TEXT, p_level INT) 
+                RETURNS INT AS $$
+                BEGIN
+                    p_type := LOWER(COALESCE(p_type, ''));
+                    
+                    IF p_type = 'common' THEN
+                        RETURN CASE p_level 
+                            WHEN 5 THEN 0 WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 15 WHEN 25 THEN 30 WHEN 30 THEN 60 ELSE 0 
+                        END;
+                    ELSIF p_type = 'rare' THEN
+                        RETURN CASE p_level 
+                            WHEN 10 THEN 1 WHEN 15 THEN 5 WHEN 20 THEN 20 WHEN 25 THEN 35 WHEN 30 THEN 65 ELSE 0 
+                        END;
+                    ELSIF p_type IN ('epic', 'event') THEN
+                        RETURN CASE p_level 
+                            WHEN 5 THEN 0 WHEN 10 THEN 5 WHEN 15 THEN 10 WHEN 20 THEN 25 WHEN 25 THEN 50 WHEN 30 THEN 80 WHEN 35 THEN 140 ELSE 0 
+                        END;
+                    ELSE
+                        RETURN 0;
+                    END IF;
+                END;
+                $$ LANGUAGE plpgsql IMMUTABLE;
+
+                CREATE OR REPLACE FUNCTION update_chest_points_trigger_fn()
+                RETURNS TRIGGER AS $$
+                BEGIN
+                    NEW.points := calculate_chest_points(NEW.chest_type, NEW.chest_level);
+                    RETURN NEW;
+                END;
+                $$ LANGUAGE plpgsql;
+
+                DROP TRIGGER IF EXISTS trg_update_chest_points ON chest_logs;
+
+                CREATE TRIGGER trg_update_chest_points
+                BEFORE INSERT OR UPDATE OF chest_type, chest_level
+                ON chest_logs
+                FOR EACH ROW
+                EXECUTE FUNCTION update_chest_points_trigger_fn();
+            """)
+
             # Create the dynamic view for weekly stats
             cursor.execute("""
                 CREATE OR REPLACE VIEW weekly_player_stats AS
