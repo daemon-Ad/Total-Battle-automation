@@ -27,7 +27,7 @@ class CaravanSender:
         "caravan_pin_icon": [430, 2170],
         "caravan_first_saved_location": [530, 344],
         "caravan_map_mid": [540, 1230],
-        "caravan_caravan_option": [780, 1425],
+        "caravan_caravan_option": [760, 1660],
         "caravan_resource_rows": {
             "silver": 860,
             "wood": 1100,
