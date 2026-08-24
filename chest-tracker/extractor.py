@@ -470,6 +470,9 @@ class ChestExtractor:
                             player = "Clan"
                             level = 25
                             chest_type = "event"
+                        elif "mercenary exchange" in full_text_lower:
+                            level = 25
+                            chest_type = "event"
                         elif "summoning dark omens" in full_text_lower:
                             # Level determined by pre-scanned raw OCR blob (omen_level_hint):
                             #   "Minor Omen Chest"             -> 20

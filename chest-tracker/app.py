@@ -229,22 +229,30 @@ def get_total_clan_points(timeframe: str = "weekly", offset: int = 0):
                 date_filter = "WHERE c.acquired_at >= %s AND c.acquired_at < %s"
                 params.extend([start_date, end_date])
                 
-            query = f"""
-                WITH calculated_logs AS (
+            if timeframe == "overall":
+                query = """
                     SELECT 
-                        c.player_id,
-                        c.acquired_at,
-                        c.chest_type,
-                        c.points AS dynamic_points
-                    FROM chest_logs c
-                )
-                SELECT 
-                    COALESCE(SUM(c.dynamic_points), 0) AS total_points
-                FROM calculated_logs c
-                {date_filter}
-            """
-            
-            cursor.execute(query, params)
+                        (SELECT COALESCE(SUM(points), 0) FROM chest_logs) +
+                        (SELECT COALESCE(SUM(total_points), 0) FROM chest_logs_monthly_summary) AS total_points
+                """
+                cursor.execute(query)
+            else:
+                query = f"""
+                    WITH calculated_logs AS (
+                        SELECT 
+                            c.player_id,
+                            c.acquired_at,
+                            c.chest_type,
+                            c.points AS dynamic_points
+                        FROM chest_logs c
+                    )
+                    SELECT 
+                        COALESCE(SUM(c.dynamic_points), 0) AS total_points
+                    FROM calculated_logs c
+                    {date_filter}
+                """
+                cursor.execute(query, params)
+
             result = cursor.fetchone()
             total_points = result["total_points"]
 
@@ -274,6 +282,21 @@ def get_total_clan_points(timeframe: str = "weekly", offset: int = 0):
         return {"status": "error", "message": str(e)}
     finally:
         conn.close()
+
+@app.post("/api/admin/archive-now")
+def trigger_archive_now():
+    """Trigger manual archival of chest logs older than 30 days."""
+    try:
+        from db import archive_old_chest_logs
+        archived_chests, archived_points = archive_old_chest_logs()
+        return {
+            "status": "success",
+            "message": f"Archival completed. Purged {archived_chests} logs older than 30 days ({archived_points} points).",
+            "archived_chests": archived_chests,
+            "archived_points": archived_points
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @app.get("/api/players")
 def get_players():
@@ -841,7 +864,7 @@ def download_pure_crypting_report(offset: int = 0):
     return PlainTextResponse(content="\n".join(lines), headers={"Content-Disposition": f'attachment; filename="{file_name}"'})
 
 
-def get_event_participation(pattern: str, duration_days: float, offset: int = 0):
+def get_event_participation(pattern: str, chest_title: str = "", duration_days: float = 3.0, offset: int = 0):
     """
     Finds if players participated in an event matching the pattern during the specified week.
     Returns participation status per active player.
@@ -856,7 +879,7 @@ def get_event_participation(pattern: str, duration_days: float, offset: int = 0)
                 FROM chest_logs 
                 WHERE (source ILIKE %s OR chest_title ILIKE %s) 
                   AND acquired_at >= %s AND acquired_at < %s
-            """, (f"%{pattern}%", f"%{pattern}%", start_date, end_date))
+            """, (f"%{pattern}%", f"%{chest_title}%", start_date, end_date))
             row = cursor.fetchone()
             event_start = row['event_start'] if row else None
             event_end_actual = row['event_end'] if row else None
@@ -884,7 +907,7 @@ def get_event_participation(pattern: str, duration_days: float, offset: int = 0)
                 WHERE p.username NOT IN ('Unknown Player', 'Clan') AND (p.is_active = TRUE OR c.player_id IS NOT NULL)
                 GROUP BY p.username
                 ORDER BY p.username ASC
-            """, (f"%{pattern}%", f"%{pattern}%", start_date, end_date))
+            """, (f"%{pattern}%", f"%{chest_title}%", start_date, end_date))
             results = cursor.fetchall()
             
             data = []
@@ -942,7 +965,7 @@ def download_ragnarok_report(offset: int = 0):
 
 @app.get("/api/reports/ancients-participation")
 def download_ancients_report(offset: int = 0):
-    part = get_event_participation("ancients", duration_days=1.0, offset=offset)
+    part = get_event_participation("Rise of the Ancients event", "Ancients' Chest", duration_days=1.0, offset=offset)
     lines = ["Rise of Ancients Participation Report", "="*50]
     if part["event_start"]:
         lines.append(f"Event Window: {part['event_start'][:16]} to {part['event_end'][:16]}\n")

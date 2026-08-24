@@ -112,6 +112,57 @@ def setup_schema():
                     points INT DEFAULT 0
                 )
             """)
+
+            # Create monthly summary table for archived data
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS chest_logs_monthly_summary (
+                    month_start   DATE PRIMARY KEY,
+                    total_points  BIGINT NOT NULL DEFAULT 0,
+                    total_chests  INTEGER NOT NULL DEFAULT 0,
+                    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+
+                DROP FUNCTION IF EXISTS archive_old_chest_logs(INT);
+
+                CREATE OR REPLACE FUNCTION archive_old_chest_logs(p_days INT DEFAULT 30)
+                RETURNS TABLE(archived_chests INT, archived_points BIGINT) AS $$
+                DECLARE
+                    v_archived_chests INT;
+                    v_archived_points BIGINT;
+                BEGIN
+                    IF p_days < 30 THEN
+                        RAISE EXCEPTION 'p_days must be >= 30 (got %). Refusing to archive data younger than the active 30-day window.', p_days;
+                    END IF;
+
+                    -- Compute what will be archived, before touching any rows
+                    SELECT COALESCE(COUNT(*), 0), COALESCE(SUM(points), 0)
+                    INTO v_archived_chests, v_archived_points
+                    FROM chest_logs
+                    WHERE acquired_at < NOW() - (p_days || ' days')::interval;
+
+                    -- Roll the same rows up into monthly buckets
+                    INSERT INTO chest_logs_monthly_summary (month_start, total_points, total_chests, updated_at)
+                    SELECT
+                        date_trunc('month', acquired_at)::date AS month_start,
+                        SUM(points),
+                        COUNT(*),
+                        NOW()
+                    FROM chest_logs
+                    WHERE acquired_at < NOW() - (p_days || ' days')::interval
+                    GROUP BY 1
+                    ON CONFLICT (month_start) DO UPDATE SET
+                        total_points = chest_logs_monthly_summary.total_points + EXCLUDED.total_points,
+                        total_chests = chest_logs_monthly_summary.total_chests + EXCLUDED.total_chests,
+                        updated_at   = NOW();
+
+                    -- Delete exactly the rows just summarized (same WHERE clause, non-negotiable)
+                    DELETE FROM chest_logs
+                    WHERE acquired_at < NOW() - (p_days || ' days')::interval;
+
+                    RETURN QUERY SELECT v_archived_chests, v_archived_points;
+                END;
+                $$ LANGUAGE plpgsql;
+            """)
             
             # Apply schema updates to existing tables just in case they were already created
             try:
@@ -263,6 +314,28 @@ def log_chest(username: str, title: str, chest_type: str, level: int, source: st
         conn.rollback()
         import sys
         print(f"Error logging chest: {e}", file=sys.stderr)
+    finally:
+        conn.close()
+
+def archive_old_chest_logs() -> tuple[int, int]:
+    """
+    Archives chest logs older than 30 days using the PL/pgSQL stored procedure archive_old_chest_logs.
+    Returns (archived_chests, archived_points).
+    """
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM archive_old_chest_logs(30);")
+            row = cursor.fetchone()
+            archived_chests = row[0] if row and row[0] is not None else 0
+            archived_points = row[1] if row and row[1] is not None else 0
+        conn.commit()
+        return archived_chests, archived_points
+    except Exception as e:
+        conn.rollback()
+        import sys
+        print(f"Error archiving chest logs: {e}", file=sys.stderr)
+        raise e
     finally:
         conn.close()
 

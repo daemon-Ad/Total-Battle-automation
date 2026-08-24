@@ -208,6 +208,41 @@ async function loadPerformers() {
         }
     });
 
+    // --- Data Archival Logic ---
+    document.getElementById('archive-now-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('archive-now-btn');
+        const statusSpan = document.getElementById('archive-status');
+        
+        if (!confirm("Are you sure you want to archive data older than 30 days? This will compress raw logs into monthly summaries and cannot be undone.")) {
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = "<i class='bx bx-loader-alt bx-spin'></i> Archiving...";
+        statusSpan.textContent = "";
+
+        try {
+            const response = await fetch('/api/admin/archive-now', {
+                method: 'POST'
+            });
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                statusSpan.style.color = '#10b981';
+                statusSpan.textContent = `Success! Archived ${result.archived_chests} logs.`;
+                setTimeout(() => { statusSpan.textContent = ''; }, 8000);
+            } else {
+                throw new Error(result.message);
+            }
+        } catch(e) {
+            statusSpan.style.color = '#ef4444';
+            statusSpan.textContent = 'Error: ' + e.message;
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = "<i class='bx bx-archive'></i> Archive Data Now";
+        }
+    });
+
     // --- Feedback Logic ---
     document.getElementById('submit-feedback-btn').addEventListener('click', async () => {
         const username = document.getElementById('fb-username').value.trim();
