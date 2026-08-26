@@ -872,6 +872,7 @@ def get_event_participation(pattern: str, chest_title: str = "", duration_days: 
     conn = get_db()
     start_date, end_date = get_weekly_date_range(offset)
     try:
+        title_pattern = f"%{chest_title}%" if chest_title else f"%{pattern}%"
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             # 1. Find actual start and end times for UI display purposes
             cursor.execute("""
@@ -879,7 +880,7 @@ def get_event_participation(pattern: str, chest_title: str = "", duration_days: 
                 FROM chest_logs 
                 WHERE (source ILIKE %s OR chest_title ILIKE %s) 
                   AND acquired_at >= %s AND acquired_at < %s
-            """, (f"%{pattern}%", f"%{chest_title}%", start_date, end_date))
+            """, (f"%{pattern}%", title_pattern, start_date, end_date))
             row = cursor.fetchone()
             event_start = row['event_start'] if row else None
             event_end_actual = row['event_end'] if row else None
@@ -907,7 +908,7 @@ def get_event_participation(pattern: str, chest_title: str = "", duration_days: 
                 WHERE p.username NOT IN ('Unknown Player', 'Clan') AND (p.is_active = TRUE OR c.player_id IS NOT NULL)
                 GROUP BY p.username
                 ORDER BY p.username ASC
-            """, (f"%{pattern}%", f"%{chest_title}%", start_date, end_date))
+            """, (f"%{pattern}%", title_pattern, start_date, end_date))
             results = cursor.fetchall()
             
             data = []
