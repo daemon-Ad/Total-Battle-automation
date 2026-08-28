@@ -546,7 +546,7 @@ async function loadPerformers() {
                     <td><span class="rank-badge-text">${p.rank || 'Officer'}</span></td>
                     <td>${armyLevel}</td>
                     <td>
-                        <button class="btn-edit" data-id="${p.id}" data-name="${p.username}" data-rank="${p.rank}"><i class='bx bx-edit'></i> Edit</button>
+                        <button class="btn-edit" data-id="${p.id}" data-name="${p.username}" data-rank="${p.rank}" data-g="${p.guardsman_level || 0}" data-s="${p.specialist_level || 0}" data-m="${p.monster_level || 0}"><i class='bx bx-edit'></i> Edit</button>
                         <button class="btn-danger" data-id="${p.id}"><i class='bx bx-trash'></i> Delete</button>
                     </td>
                 `;
@@ -558,7 +558,7 @@ async function loadPerformers() {
         if (totalBadge) totalBadge.innerText = `${count} Players`;
 
         tbody.querySelectorAll('.btn-edit').forEach(btn => {
-            btn.addEventListener('click', () => editPlayer(btn.dataset.id, btn.dataset.name, btn.dataset.rank));
+            btn.addEventListener('click', () => editPlayer(btn.dataset.id, btn.dataset.name, btn.dataset.rank, btn.dataset.g, btn.dataset.s, btn.dataset.m));
         });
         tbody.querySelectorAll('.btn-danger').forEach(btn => {
             btn.addEventListener('click', () => deletePlayer(btn.dataset.id));
@@ -620,10 +620,13 @@ async function loadPerformers() {
 
     let currentEditingPlayerId = null;
 
-    function editPlayer(id, oldName, oldRank) {
+    function editPlayer(id, oldName, oldRank, oldG, oldS, oldM) {
         currentEditingPlayerId = id;
         document.getElementById('edit-player-name').value = oldName;
         document.getElementById('edit-player-rank').value = oldRank || 'Officer';
+        document.getElementById('edit-player-guardsman').value = oldG || 0;
+        document.getElementById('edit-player-specialist').value = oldS || 0;
+        document.getElementById('edit-player-monster').value = oldM || 0;
         document.getElementById('edit-player-modal').classList.remove('hidden');
     }
 
@@ -637,13 +640,22 @@ async function loadPerformers() {
         
         const newName = document.getElementById('edit-player-name').value.trim();
         const newRank = document.getElementById('edit-player-rank').value;
+        const newG = parseInt(document.getElementById('edit-player-guardsman').value) || 0;
+        const newS = parseInt(document.getElementById('edit-player-specialist').value) || 0;
+        const newM = parseInt(document.getElementById('edit-player-monster').value) || 0;
         
         if (!newName) return;
         
         await fetch(`/api/players/${currentEditingPlayerId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: newName, rank: newRank })
+            body: JSON.stringify({ 
+                username: newName, 
+                rank: newRank,
+                guardsman_level: newG,
+                specialist_level: newS,
+                monster_level: newM
+            })
         });
         
         document.getElementById('edit-player-modal').classList.add('hidden');
