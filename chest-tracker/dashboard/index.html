@@ -7,7 +7,7 @@
     <title>Total Battle Clan Management</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;800&display=swap" rel="stylesheet">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="/assets/style.css?v=202608281017">
     <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
 
     <!-- Google Translate Script -->
@@ -23,6 +23,22 @@
 
 <body>
 
+    <!-- Login Overlay -->
+    <div id="login-overlay" class="login-overlay">
+        <div class="login-card glass-card">
+            <h2 style="margin-bottom: 0.5rem; text-align: center;"><i class='bx bx-shield-quarter'></i> Clan Dashboard</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem; text-align: center;">Enter your player name to access</p>
+            <div class="form-group">
+                <input type="text" id="login-username" class="styled-input" placeholder="Player Name" onkeydown="if(event.key==='Enter') document.getElementById('login-btn').click()">
+            </div>
+            <div class="form-group" id="login-password-group" style="display: none; margin-top: 1rem;">
+                <input type="password" id="login-password" class="styled-input" placeholder="Password" onkeydown="if(event.key==='Enter') document.getElementById('login-btn').click()">
+            </div>
+            <button id="login-btn" class="btn-primary" style="width: 100%; margin-top: 1rem;">Login</button>
+            <p id="login-status" style="margin-top: 1rem; font-size: 0.85rem; text-align: center; color: #ef4444;"></p>
+        </div>
+    </div>
+
     <!-- Sidebar Navigation -->
     <nav class="sidebar collapsed" id="sidebar">
         <div class="sidebar-header">
@@ -30,37 +46,33 @@
             <span class="logo-text">Dashboard</span>
         </div>
         <ul class="nav-links">
-            <li class="active" data-view="home-view">
+            <li data-view="home-view" data-admin-only="true">
                 <i class='bx bx-home-alt'></i>
                 <span class="link-name">Home</span>
             </li>
-            <li data-view="reports-view">
+            <li data-view="reports-view" data-admin-only="true">
                 <i class='bx bx-file'></i>
                 <span class="link-name">Reports</span>
             </li>
-            <li data-view="analytics-view">
+            <li data-view="analytics-view" data-admin-only="true">
                 <i class='bx bx-line-chart'></i>
                 <span class="link-name">Analytics</span>
             </li>
-            <li data-view="leaderboard-view">
+            <li class="active" data-view="leaderboard-view">
                 <i class='bx bx-bar-chart-alt-2'></i>
                 <span class="link-name">Leaderboard</span>
             </li>
-            <li data-view="management-view">
+            <li data-view="management-view" data-admin-only="true">
                 <i class='bx bx-user-circle'></i>
                 <span class="link-name">Player management</span>
             </li>
-            <li data-view="settings-view">
+            <li data-view="settings-view" data-admin-only="true">
                 <i class='bx bx-cog'></i>
                 <span class="link-name">Chest settings</span>
             </li>
-            <li data-view="manual-entry-view">
+            <li data-view="manual-entry-view" data-admin-only="true">
                 <i class='bx bx-edit'></i>
                 <span class="link-name">Manual Entry</span>
-            </li>
-            <li data-view="total-clan-points-view">
-                <i class='bx bx-trophy'></i>
-                <span class="link-name">Total Clan Points</span>
             </li>
             <li data-view="feedback-view">
                 <i class='bx bx-message-square-dots'></i>
@@ -126,13 +138,13 @@
                 </header>
 
                 <div class="home-cards">
-                    <a href="#" class="home-card glass-card nav-card" data-target="reports-view"
+                    <a href="#" class="home-card glass-card nav-card" data-target="reports-view" data-admin-only="true"
                         style="text-decoration: none; color: inherit;">
                         <i class='bx bx-file'></i>
                         <h3>Reports</h3>
                         <p>Generate & download weekly & event participation reports</p>
                     </a>
-                    <a href="#" class="home-card glass-card nav-card" data-target="analytics-view"
+                    <a href="#" class="home-card glass-card nav-card" data-target="analytics-view" data-admin-only="true"
                         style="text-decoration: none; color: inherit;">
                         <i class='bx bx-line-chart'></i>
                         <h3>Analytics</h3>
@@ -144,19 +156,19 @@
                         <h3>Leaderboard</h3>
                         <p>View weekly chest contributions and scores</p>
                     </a>
-                    <a href="#" class="home-card glass-card nav-card" data-target="management-view"
+                    <a href="#" class="home-card glass-card nav-card" data-target="management-view" data-admin-only="true"
                         style="text-decoration: none; color: inherit;">
                         <i class='bx bx-user-circle'></i>
                         <h3>Player Management</h3>
                         <p>Add, edit, or remove clan members</p>
                     </a>
-                    <a href="#" class="home-card glass-card nav-card" data-target="settings-view"
+                    <a href="#" class="home-card glass-card nav-card" data-target="settings-view" data-admin-only="true"
                         style="text-decoration: none; color: inherit;">
                         <i class='bx bx-cog'></i>
                         <h3>Chest Settings</h3>
                         <p>Configure weekly goals and system parameters</p>
                     </a>
-                    <a href="#" class="home-card glass-card nav-card" data-target="manual-entry-view"
+                    <a href="#" class="home-card glass-card nav-card" data-target="manual-entry-view" data-admin-only="true"
                         style="text-decoration: none; color: inherit;">
                         <i class='bx bx-edit'></i>
                         <h3>Manual Entry</h3>
@@ -563,7 +575,7 @@
                             <option value="1">Previous</option>
                             <option value="2">Offset 2</option>
                         </select>
-                        <button class="btn-primary" style="margin-left: 10px;" onclick="downloadBothWeeklyReports()"><i
+                        <button class="btn-primary" style="margin-left: 10px;" onclick="downloadBothWeeklyReports()" data-admin-only="true"><i
                                 class='bx bx-download'></i> Report</button>
                     </div>
                 </div>
@@ -649,8 +661,6 @@
                         <p>Add, edit, or remove clan members</p>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
-                        <button class="btn-secondary" id="open-past-modal-btn" style="width: 100%;"><i
-                                class='bx bx-history'></i> View Past Members</button>
                         <button class="btn-primary" id="open-add-modal-btn" style="width: 100%;"><i
                                 class='bx bx-user-plus'></i> Add Player</button>
                     </div>
@@ -683,6 +693,7 @@
                                 <th>Player Name</th>
                                 <th>Rank</th>
                                 <th>Army Level</th>
+                                <th>Access</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -759,78 +770,13 @@
                 </div>
             </section>
 
-            <!-- Total Clan Points View -->
-            <section id="total-clan-points-view" class="view">
-                <header class="section-header">
-                    <div>
-                        <h1>Total Clan Points</h1>
-                        <p>Comparison of total acquired points against weekly target (Weekly Goal × 1.1 × Active
-                            Players).</p>
-                    </div>
-                </header>
-
-                <div class="metrics-grid" style="margin-bottom: 2rem;">
-                    <div class="metric-card">
-                        <div class="metric-icon" style="background: rgba(255,193,7,0.1); color: #ffc107;">
-                            <i class='bx bx-trophy'></i>
-                        </div>
-                        <div class="metric-info">
-                            <h3>Weekly Total Points</h3>
-                            <p class="value" id="tcp-weekly-points">0</p>
-                        </div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-icon" style="background: rgba(59,130,246,0.1); color: #3b82f6;">
-                            <i class='bx bx-target-lock'></i>
-                        </div>
-                        <div class="metric-info">
-                            <h3>Clan Target (110% Goal)</h3>
-                            <p class="value" id="tcp-target-points">0</p>
-                        </div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-icon" style="background: rgba(16,185,129,0.1); color: #10b981;">
-                            <i class='bx bx-line-chart'></i>
-                        </div>
-                        <div class="metric-info">
-                            <h3>Target Achievement</h3>
-                            <p class="value" id="tcp-progress-percent">0%</p>
-                        </div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-icon" style="background: rgba(139,92,246,0.1); color: #8b5cf6;">
-                            <i class='bx bx-group'></i>
-                        </div>
-                        <div class="metric-info">
-                            <h3>Active Members</h3>
-                            <p class="value" id="tcp-active-players">0</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
+            
 
         </div>
     </div>
 
 
-    <!-- Past Members Modal -->
-    <div id="past-members-modal" class="modal-overlay hidden">
-        <div class="modal-content glass-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <h2>Past Members</h2>
-                <button class="btn-icon" id="close-past-modal"><i class='bx bx-x'></i></button>
-            </div>
-            <table class="data-table" style="width: 100%;">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="past-members-body"></tbody>
-            </table>
-        </div>
-    </div>
+
 
 
     <!-- Add Player Modal -->
@@ -981,7 +927,7 @@
         </div>
     </div>
 
-    <script src="/assets/app.js?v=1786688565"></script>
+    <script src="/assets/app.js?v=202608281444"></script>
 
     <!-- Player History Modal -->
     <div class="modal-overlay hidden" id="player-history-modal">

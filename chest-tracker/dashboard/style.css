@@ -903,3 +903,34 @@ body {
     max-height: 80vh; overflow-y: auto;
 }
 .hidden { display: none !important; }
+
+/* Login Overlay Styles */
+.login-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    transition: opacity 0.3s ease;
+}
+
+.login-card {
+    width: 90%;
+    max-width: 380px;
+    padding: 2.5rem 2rem;
+    background: var(--bg-surface);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    border-radius: 12px;
+}
+
+/* Admin-only Element Hiding */
+[data-admin-only="true"].restricted {
+    display: none !important;
+}

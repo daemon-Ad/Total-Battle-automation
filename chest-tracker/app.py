@@ -24,39 +24,14 @@ from db import get_connection as get_db, hash_password
 import base64
 from fastapi import Request, Response
 
-# Basic Authentication Middleware
-@app.middleware("http")
-async def basic_auth_middleware(request: Request, call_next):
-    if request.url.path.startswith("/api/reports/"):
-        return await call_next(request)
-        
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Basic "):
-        return Response(status_code=401, headers={"WWW-Authenticate": 'Basic realm="Dashboard"'})
-    
-    try:
-        decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
-        username, password = decoded.split(":", 1)
-    except Exception:
-        return Response(status_code=401, headers={"WWW-Authenticate": 'Basic realm="Dashboard"'})
-    
-    # Check DB
-    conn = get_db()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT password_hash FROM users WHERE username = %s", (username,))
-            row = cursor.fetchone()
-            if not row or row[0] != hash_password(password):
-                return Response(status_code=401, headers={"WWW-Authenticate": 'Basic realm="Dashboard"'})
-    except Exception:
-        return Response(status_code=500, content="Database Error")
-    finally:
-        conn.close()
-        
-    response = await call_next(request)
-    return response
+# Removed Basic Auth Middleware for name-based login system
+
 
 # Pydantic models for request bodies
+class LoginRequest(BaseModel):
+    username: str
+    password: Optional[str] = None
+
 class PlayerCreate(BaseModel):
     username: str
     rank: str = "Officer"
@@ -95,6 +70,57 @@ class ManualEntryPayload(BaseModel):
     entries: List[ManualPlayerEntry]
 
 # --- API ENDPOINTS ---
+
+@app.post("/api/login")
+def login(req: LoginRequest):
+    """Authenticate a user by name."""
+    from db import match_player
+    player_id, matched_name = match_player(req.username)
+    
+    conn = get_db()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            if player_id == 98 or not matched_name:
+                cursor.execute("INSERT INTO login_logs (username, status) VALUES (%s, %s)", (req.username, 'not_found'))
+                conn.commit()
+                return {"status": "error", "message": "Player not found"}
+                
+            cursor.execute("SELECT rank, login_access FROM players WHERE id = %s", (player_id,))
+            player = cursor.fetchone()
+            
+            if not player:
+                cursor.execute("INSERT INTO login_logs (username, status) VALUES (%s, %s)", (req.username, 'not_found'))
+                conn.commit()
+                return {"status": "error", "message": "Player not found"}
+                
+            if player['rank'] not in ('Leader', 'Superior') and not player['login_access']:
+                cursor.execute("INSERT INTO login_logs (username, status) VALUES (%s, %s)", (matched_name, 'denied'))
+                conn.commit()
+                return {"status": "pending", "message": "Access request sent. Please wait for admin approval."}
+                
+            if player['rank'] in ('Leader', 'Superior'):
+                if not req.password:
+                    return {"status": "challenge", "message": "Password required"}
+                
+                cursor.execute("SELECT password_hash FROM users WHERE username = %s", (matched_name,))
+                user_row = cursor.fetchone()
+                from db import hash_password
+                if not user_row or user_row['password_hash'] != hash_password(req.password):
+                    cursor.execute("INSERT INTO login_logs (username, status) VALUES (%s, %s)", (matched_name, 'invalid_password'))
+                    conn.commit()
+                    return {"status": "error", "message": "Invalid password"}
+            else:
+                # Consume the access token for non-admins so it's strictly once per session
+                cursor.execute("UPDATE players SET login_access = FALSE WHERE id = %s", (player_id,))
+
+            cursor.execute("INSERT INTO login_logs (username, status) VALUES (%s, %s)", (matched_name, 'success'))
+            conn.commit()
+            return {"status": "success", "username": matched_name, "rank": player['rank']}
+    except Exception as e:
+        conn.rollback()
+        return {"status": "error", "message": str(e)}
+    finally:
+        conn.close()
 
 @app.get("/api/leaderboard")
 def get_leaderboard(
@@ -305,8 +331,9 @@ def get_players():
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute("""
-                SELECT id, username, rank, is_active, guardsman_level, specialist_level, monster_level FROM players 
-                WHERE username != 'Unknown Player'
+                SELECT id, username, rank, is_active, guardsman_level, specialist_level, monster_level, login_access 
+                FROM players 
+                WHERE username != 'Unknown Player' AND is_active = TRUE
                 ORDER BY 
                     CASE rank
                         WHEN 'Leader' THEN 1
@@ -327,31 +354,55 @@ def get_players():
         conn.close()
 
 
+@app.post("/api/players/{player_id}/access")
+def toggle_player_access(player_id: int):
+    """Toggle a player's login access."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("UPDATE players SET login_access = NOT login_access WHERE id = %s RETURNING login_access", (player_id,))
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Player not found")
+            new_status = cursor.fetchone()[0]
+        conn.commit()
+        return {"status": "success", "login_access": new_status, "message": f"Access {'granted' if new_status else 'revoked'}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        return {"status": "error", "message": str(e)}
+    finally:
+        conn.close()
+
 @app.post("/api/players")
 def create_player(player: PlayerCreate):
     """Create a new player."""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            # Upsert logic to handle soft-deleted players
             cursor.execute("""
                 INSERT INTO players (username, rank, is_active, guardsman_level, specialist_level, monster_level) 
                 VALUES (%s, %s, TRUE, %s, %s, %s)
-                ON CONFLICT (username) DO UPDATE 
-                SET rank = EXCLUDED.rank, 
-                    is_active = TRUE,
-                    guardsman_level = EXCLUDED.guardsman_level,
-                    specialist_level = EXCLUDED.specialist_level,
-                    monster_level = EXCLUDED.monster_level
                 RETURNING id
             """, (player.username, player.rank, player.guardsman_level, player.specialist_level, player.monster_level))
             new_id = cursor.fetchone()[0]
+            
+            # If new player is an admin, give them a default password and access
+            if player.rank in ('Leader', 'Superior'):
+                from db import hash_password
+                cursor.execute("""
+                    INSERT INTO users (username, password_hash) 
+                    VALUES (%s, %s) ON CONFLICT (username) DO NOTHING
+                """, (player.username, hash_password("tb1234")))
+                cursor.execute("UPDATE players SET login_access = TRUE WHERE id = %s", (new_id,))
+            else:
+                cursor.execute("DELETE FROM users WHERE username = %s", (player.username,))
             
             # Keep the sequence in sync just in case
             cursor.execute("SELECT setval('players_id_seq', (SELECT MAX(id) FROM players))")
             
         conn.commit()
-        return {"status": "success", "message": "Player created/reactivated", "id": new_id}
+        return {"status": "success", "message": "Player created", "id": new_id}
     except Exception as e:
         conn.rollback()
         return {"status": "error", "message": str(e)}
@@ -365,12 +416,31 @@ def update_player(player_id: int, player: PlayerUpdate):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
+            cursor.execute("SELECT username FROM players WHERE id = %s", (player_id,))
+            old_player = cursor.fetchone()
+            if not old_player:
+                raise HTTPException(status_code=404, detail="Player not found")
+            old_username = old_player[0]
+            
             cursor.execute("""
                 UPDATE players SET username = %s, rank = %s, guardsman_level = %s, specialist_level = %s, monster_level = %s 
                 WHERE id = %s
             """, (player.username, player.rank, player.guardsman_level, player.specialist_level, player.monster_level, player_id))
-            if cursor.rowcount == 0:
-                raise HTTPException(status_code=404, detail="Player not found")
+            
+            # If name changed, update users table
+            if old_username != player.username:
+                cursor.execute("UPDATE users SET username = %s WHERE username = %s", (player.username, old_username))
+                
+            # If they are an admin, ensure they have a password and access
+            if player.rank in ('Leader', 'Superior'):
+                from db import hash_password
+                cursor.execute("""
+                    INSERT INTO users (username, password_hash) 
+                    VALUES (%s, %s) ON CONFLICT (username) DO NOTHING
+                """, (player.username, hash_password("tb1234")))
+                cursor.execute("UPDATE players SET login_access = TRUE WHERE id = %s", (player_id,))
+            else:
+                cursor.execute("DELETE FROM users WHERE username = %s", (player.username,))
         conn.commit()
         return {"status": "success", "message": "Player updated"}
     except HTTPException:
@@ -381,26 +451,6 @@ def update_player(player_id: int, player: PlayerUpdate):
     finally:
         conn.close()
 
-
-
-@app.post("/api/players/{player_id}/reactivate")
-def reactivate_player(player_id: int):
-    """Reactivate a soft-deleted player."""
-    conn = get_db()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("UPDATE players SET is_active = TRUE WHERE id = %s", (player_id,))
-            if cursor.rowcount == 0:
-                raise HTTPException(status_code=404, detail="Player not found")
-        conn.commit()
-        return {"status": "success", "message": "Player reactivated"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        conn.rollback()
-        return {"status": "error", "message": str(e)}
-    finally:
-        conn.close()
 
 
 @app.delete("/api/players/{player_id}")

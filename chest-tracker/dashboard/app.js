@@ -59,8 +59,108 @@ document.addEventListener('DOMContentLoaded', () => {
     if(hp) hp.addEventListener("change", loadPerformers);
 
     async function init() {
-        await fetchSettings();
-        switchView('home-view');
+        const storedUser = sessionStorage.getItem('currentUser');
+        if (!storedUser) {
+            document.getElementById('login-overlay').style.display = 'flex';
+            // Don't try to switch views or fetch settings until logged in
+            return;
+        }
+        
+        document.getElementById('login-overlay').style.display = 'none';
+        const userData = JSON.parse(storedUser);
+        updateUIForRole(userData.rank);
+        
+        try {
+            await fetchSettings();
+        } catch(e) {
+            console.warn('Failed to fetch settings:', e);
+        }
+        
+        if (!['Leader', 'Superior'].includes(userData.rank)) {
+            switchView('leaderboard-view');
+        } else {
+            switchView('home-view');
+        }
+    }
+
+    const loginBtn = document.getElementById('login-btn');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', async () => {
+            const username = document.getElementById('login-username').value.trim();
+            const passwordGroup = document.getElementById('login-password-group');
+            const passwordInput = document.getElementById('login-password');
+            const statusEl = document.getElementById('login-status');
+            
+            if (!username) return;
+            
+            const payload = { username };
+            if (passwordGroup.style.display !== 'none') {
+                if (!passwordInput.value) {
+                    statusEl.textContent = "Please enter your password";
+                    return;
+                }
+                payload.password = passwordInput.value;
+            }
+            
+            loginBtn.disabled = true;
+            statusEl.textContent = "Logging in...";
+            statusEl.style.color = "var(--text-secondary)";
+            
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                
+                if (data.status === 'success') {
+                    sessionStorage.setItem('currentUser', JSON.stringify({
+                        username: data.username,
+                        rank: data.rank
+                    }));
+                    document.getElementById('login-overlay').style.display = 'none';
+                    updateUIForRole(data.rank);
+                    try { await fetchSettings(); } catch(e) {}
+                    if (!['Leader', 'Superior'].includes(data.rank)) {
+                        switchView('leaderboard-view');
+                    } else {
+                        switchView('home-view');
+                    }
+                } else if (data.status === 'challenge') {
+                    loginBtn.disabled = false;
+                    statusEl.textContent = data.message;
+                    statusEl.style.color = "#f59e0b";
+                    passwordGroup.style.display = 'block';
+                    passwordInput.focus();
+                } else if (data.status === 'pending') {
+                    loginBtn.disabled = false;
+                    statusEl.textContent = data.message;
+                    statusEl.style.color = "#f59e0b"; // Warning color
+                } else {
+                    loginBtn.disabled = false;
+                    statusEl.textContent = data.message;
+                    statusEl.style.color = "#ef4444"; // Error color
+                }
+            } catch (err) {
+                loginBtn.disabled = false;
+                statusEl.textContent = "Network error";
+                statusEl.style.color = "#ef4444";
+            } finally {
+                loginBtn.disabled = false;
+            }
+        });
+    }
+
+    function updateUIForRole(rank) {
+        const isAdmin = ['Leader', 'Superior'].includes(rank);
+        document.querySelectorAll('[data-admin-only="true"]').forEach(el => {
+            if (isAdmin) {
+                el.classList.remove('restricted');
+            } else {
+                el.classList.add('restricted');
+            }
+        });
     }
 
     // --- Sidebar & Nav Logic ---
@@ -132,6 +232,21 @@ async function loadPerformers() {
 }
 
     function switchView(viewId) {
+        // Prevent access to admin views if not admin
+        const storedUser = sessionStorage.getItem('currentUser');
+        if (storedUser) {
+            const rank = JSON.parse(storedUser).rank;
+            const isAdmin = ['Leader', 'Superior'].includes(rank);
+            const targetNav = document.querySelector(`.nav-links li[data-view="${viewId}"]`);
+            if (!isAdmin && targetNav && targetNav.getAttribute('data-admin-only') === 'true') {
+                return; // Block access
+            }
+            // Block home view explicitly for non-admin
+            if (!isAdmin && viewId === 'home-view') {
+                return;
+            }
+        }
+
         views.forEach(view => view.classList.remove('active'));
         document.getElementById(viewId).classList.add('active');
         
@@ -463,19 +578,8 @@ async function loadPerformers() {
     }
 
     let allManagementPlayers = [];
-    let showPastMembers = false;
 
     // --- Player Management View Logic ---
-    
-    const pastBtn = document.getElementById("open-past-modal-btn");
-    const closePast = document.getElementById("close-past-modal");
-    if(pastBtn) pastBtn.addEventListener("click", () => {
-        document.getElementById("past-members-modal").classList.remove("hidden");
-        fetchPlayers(); // This updates allManagementPlayers
-    });
-    if(closePast) closePast.addEventListener("click", () => {
-        document.getElementById("past-members-modal").classList.add("hidden");
-    });
 
     async function fetchPlayers() {
         const loadingEl = document.getElementById('management-loading');
@@ -511,12 +615,9 @@ async function loadPerformers() {
         return re.test(str);
     }
 
-    
     function renderManagement() {
         const tbody = document.getElementById('management-body');
-        const pastBody = document.getElementById('past-members-body');
         tbody.innerHTML = '';
-        if(pastBody) pastBody.innerHTML = '';
         
         const filterRank = document.getElementById('management-rank-filter').value;
         const searchQuery = document.getElementById('management-search').value.trim().toLowerCase();
@@ -530,28 +631,24 @@ async function loadPerformers() {
 
         let count = 0;
         filteredPlayers.forEach(p => {
-            if (p.is_active === false) {
-                if(pastBody) {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${p.username}</td><td><button class="btn-primary" onclick="reactivatePlayer(${p.id})">Activate</button></td>`;
-                    pastBody.appendChild(tr);
-                }
-            } else {
-                count++;
-                let armyLevel = `G${p.guardsman_level || 0}-S${p.specialist_level || 0}-M${p.monster_level || 0}`;
+            count++;
+            let armyLevel = `G${p.guardsman_level || 0}-S${p.specialist_level || 0}-M${p.monster_level || 0}`;
+                let accessStatus = p.login_access ? `<span style="color: #10b981;">Approved</span>` : `<span style="color: #ef4444;">Pending</span>`;
+                let toggleAccessBtn = `<button class="btn-secondary btn-sm" onclick="toggleAccess(${p.id})">${p.login_access ? 'Revoke' : 'Approve'}</button>`;
+                
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>#${p.id}</td>
                     <td>${p.username}</td>
                     <td><span class="rank-badge-text">${p.rank || 'Officer'}</span></td>
                     <td>${armyLevel}</td>
+                    <td>${accessStatus} <br> ${toggleAccessBtn}</td>
                     <td>
                         <button class="btn-edit" data-id="${p.id}" data-name="${p.username}" data-rank="${p.rank}" data-g="${p.guardsman_level || 0}" data-s="${p.specialist_level || 0}" data-m="${p.monster_level || 0}"><i class='bx bx-edit'></i> Edit</button>
                         <button class="btn-danger" data-id="${p.id}"><i class='bx bx-trash'></i> Delete</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
-            }
         });
 
         const totalBadge = document.getElementById('management-total-players');
@@ -564,11 +661,10 @@ async function loadPerformers() {
             btn.addEventListener('click', () => deletePlayer(btn.dataset.id));
         });
     }
-    
-    window.reactivatePlayer = async function(id) {
-        if(!confirm("Reactivate this past member?")) return;
+
+    window.toggleAccess = async function(id) {
         try {
-            const response = await fetch(`/api/players/${id}/reactivate`, { method: 'POST', headers: {'Authorization': 'Basic ' + btoa('Shanks:shanks123')} });
+            const response = await fetch(`/api/players/${id}/access`, { method: 'POST' });
             if (response.ok) { fetchPlayers(); }
         } catch(e) {}
     }

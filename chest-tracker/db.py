@@ -37,7 +37,7 @@ def setup_schema():
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS players (
                     id SERIAL PRIMARY KEY,
-                    username TEXT UNIQUE NOT NULL,
+                    username TEXT NOT NULL,
                     rank TEXT DEFAULT 'Officer',
                     is_active BOOLEAN DEFAULT TRUE,
                     guardsman_level INT DEFAULT 0,
@@ -53,9 +53,23 @@ def setup_schema():
                 ALTER TABLE players ADD COLUMN IF NOT EXISTS guardsman_level INT DEFAULT 0;
                 ALTER TABLE players ADD COLUMN IF NOT EXISTS specialist_level INT DEFAULT 0;
                 ALTER TABLE players ADD COLUMN IF NOT EXISTS monster_level INT DEFAULT 0;
+                ALTER TABLE players ADD COLUMN IF NOT EXISTS login_access BOOLEAN DEFAULT FALSE;
+            """)
+            
+            # Auto-approve Leaders and Superiors
+            cursor.execute("UPDATE players SET login_access = TRUE WHERE rank IN ('Leader', 'Superior');")
+
+            # Create login logs table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS login_logs (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    login_time TIMESTAMPTZ DEFAULT NOW()
+                )
             """)
 
-            # Create users table for dashboard authentication
+            # Create users table for dashboard authentication (deprecated but kept for structure)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
@@ -266,7 +280,7 @@ def match_player(username: str) -> tuple[int, str]:
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT id, username FROM players")
+            cursor.execute("SELECT id, username FROM players WHERE is_active = TRUE")
             players = cursor.fetchall()
             
             # 1. Exact match
