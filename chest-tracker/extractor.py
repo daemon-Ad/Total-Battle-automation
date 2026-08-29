@@ -466,7 +466,10 @@ class ChestExtractor:
                     # 2. Apply Custom Rules & Logic
                     if is_event:
                         # Skip color-matching entirely for Event chests and use source text rules
-                        if "epic ancient squad" in full_text_lower:
+                        if "union of triumph" in full_text_lower:
+                            level = 20
+                            chest_type = "rare"
+                        elif "epic ancient squad" in full_text_lower:
                             player = "Clan"
                             level = 25
                             chest_type = "event"

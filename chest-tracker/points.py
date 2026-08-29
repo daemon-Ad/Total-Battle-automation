@@ -6,8 +6,11 @@ def calculate_points(chest_type: str, level: int) -> int:
     chest_type = chest_type.lower()
     
     # Points matrix definition
-    common_points = {5: 0, 10: 1, 15: 5, 20: 15, 25: 30, 30: 60}
-    rare_points = {10: 1, 15: 5, 20: 20, 25: 35, 30: 65}
+    # common_points = {5: 0, 10: 1, 15: 5, 20: 15, 25: 30, 30: 60}
+    common_points = {5: 0, 10: 0, 15: 0, 20: 15, 25: 30, 30: 60}
+    # rare_points = {10: 1, 15: 5, 20: 20, 25: 35, 30: 65}
+    rare_points = {10: 0, 15: 0, 20: 20, 25: 35, 30: 65}
+    # epic_points = {15: 10, 20: 25, 25: 50, 30: 80, 35: 140}
     epic_points = {15: 10, 20: 25, 25: 50, 30: 80, 35: 140}
     
     # Events use the exact same point scale as Epic

@@ -291,7 +291,7 @@ def get_total_clan_points(timeframe: str = "weekly", offset: int = 0):
             cnt_row = cursor.fetchone()
             active_players = cnt_row['cnt'] if cnt_row else 0
 
-            target_points = int(round(weekly_goal * 1.1 * active_players))
+            target_points = int(round(weekly_goal * 1.25 * active_players))
             progress_percent = round((total_points / target_points) * 100, 1) if target_points > 0 else 0.0
 
             return {
